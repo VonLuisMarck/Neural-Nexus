@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHADOW NEXUS - v3.1.8</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1a2e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ========== SIDEBAR ========== */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #16213e 0%, #0f1419 100%);
+            border-right: 3px solid #0f3460;
+            padding: 25px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 5px 0 20px rgba(15, 52, 96, 0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+            padding: 25px;
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            border: 2px solid #0f3460;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.4);
+        }
+
+        .logo-icon {
+            font-size: 3rem;
+            color: #e94560;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 10px rgba(233, 69, 96, 0.5));
+        }
+
+        .logo h1 {
+            color: #e94560;
+            font-size: 1.8rem;
+            text-shadow: 0 2px 10px rgba(233, 69, 96, 0.5);
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .logo .version {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            background: rgba(148, 163, 184, 0.1);
+            padding: 4px 12px;
+            border-radius: 15px;
+            display: inline-block;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .nav-item {
+            padding: 16px 18px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            background: rgba(15, 52, 96, 0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #94a3b8;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.95rem;
+        }
+
+        .nav-item:hover {
+            background: rgba(15, 52, 96, 0.3);
+            border-left-color: #0f3460;
+            transform: translateX(5px);
+            color: #e4e4e4;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(15, 52, 96, 0.4), rgba(15, 52, 96, 0.2));
+            border-left-color: #e94560;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .nav-item i {
+            width: 22px;
+            text-align: center;
+            color: #0f3460;
+            font-size: 1rem;
+        }
+
+        .nav-item.active i {
+            color: #e94560;
+        }
+
+        /* ========== STATS PANEL ========== */
+        .stats-panel {
+            margin-top: 30px;
+            padding: 18px;
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(15, 52, 96, 0.3);
+        }
+
+        .stats-panel h3 {
+            color: #e94560;
+            margin-bottom: 18px;
+            font-size: 1rem;
+            text-align: center;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(15, 52, 96, 0.5);
+            font-weight: 600;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            color: #e94560;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .ai-mode-enabled {
+            color: #28a745 !important;
+        }
+
+        .ai-mode-disabled {
+            color: #6c757d !important;
+        }
+
+        /* ========== MAIN CONTENT ========== */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+            background: #1a1a2e;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            padding: 25px 30px;
+            border: 2px solid #0f3460;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.3);
+        }
+
+        .header-title h2 {
+            color: #e94560;
+            font-size: 1.7rem;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .header-title p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            font-style: italic;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 18px;
+            align-items: center;
+        }
+
+        /* ========== AI TOGGLE ========== */
+        .ai-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(15, 52, 96, 0.2);
+            padding: 10px 18px;
+            border: 2px solid #0f3460;
+            border-radius: 25px;
+        }
+
+        .ai-toggle label {
+            color: #e94560;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 56px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #2d3748;
+            transition: 0.4s;
+            border-radius: 28px;
+            border: 2px solid #4a5568;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 2px;
+            background: #e4e4e4;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border-color: #28a745;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(28px);
+        }
+
+        .ai-status {
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: 2px solid;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ai-status.enabled {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: #fff;
+            border-color: #28a745;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .ai-status.disabled {
+            background: #2d3748;
+            color: #94a3b8;
+            border-color: #4a5568;
+        }
+
+        /* ========== TABS ========== */
+        .tab {
+            display: none;
+        }
+
+        .tab.active {
+            display: block;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        /* ========== CARDS ========== */
+        .card {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 24px;
+            margin-bottom: 24px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(15, 52, 96, 0.5);
+        }
+
+        .card-header h3 {
+            color: #e94560;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        /* ========== BUTTONS ========== */
+        .btn {
+            padding: 11px 22px;
+            border: 2px solid #0f3460;
+            background: linear-gradient(135deg, rgba(15, 52, 96, 0.3), rgba(15, 52, 96, 0.1));
+            color: #0f3460;
+            cursor: pointer;
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: #fff;
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #e94560, #d63447);
+            color: #fff;
+            border-color: #e94560;
+        }
+
+        .btn.primary:hover {
+            background: linear-gradient(135deg, #ff5571, #e94560);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.5);
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: #fff;
+            border-color: #28a745;
+        }
+
+        .btn.success:hover {
+            background: linear-gradient(135deg, #34ce57, #28a745);
+            box-shadow: 0 5px 20px rgba(40, 167, 69, 0.5);
+        }
+
+        .btn.small {
+            padding: 7px 14px;
+            font-size: 0.8rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ========== GRIDS ========== */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        /* ========== AGENT CARDS ========== */
+        .agent-card {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 18px;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .agent-card:hover {
+            border-color: #e94560;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+        }
+
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .agent-id {
+            color: #e94560;
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+
+        .agent-status {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .agent-status.active {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .agent-status.offline {
+            background: #2d3748;
+            color: #94a3b8;
+        }
+
+        .agent-info {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin: 6px 0;
+        }
+
+        .agent-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .agent-actions .btn {
+            flex: 1;
+            padding: 9px;
+            font-size: 0.8rem;
+        }
+
+        /* ========== TERMINAL ========== */
+        .terminal {
+            background: #0a0e14;
+            border: 2px solid #0f3460;
+            padding: 22px;
+            min-height: 400px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            border-radius: 10px;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .terminal-entry {
+            margin: 12px 0;
+            padding: 10px;
+            border-left: 3px solid #2d3748;
+            background: rgba(15, 52, 96, 0.05);
+            border-radius: 4px;
+        }
+
+        .terminal-command {
+            border-left-color: #e94560;
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .terminal-result {
+            border-left-color: #0f3460;
+            background: rgba(15, 52, 96, 0.08);
+        }
+
+        .terminal-error {
+            border-left-color: #dc3545;
+            color: #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+        }
+
+        .terminal-system {
+            border-left-color: #6c757d;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .user-prompt {
+            color: #e94560;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .user-message {
+            color: #e4e4e4;
+            padding: 6px 0;
+        }
+
+        .assistant-prompt {
+            color: #0f3460;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .assistant-message {
+            color: #cbd5e0;
+            padding: 6px 0;
+            line-height: 1.6;
+        }
+
+        .system-message {
+            color: #94a3b8;
+            font-style: italic;
+            padding: 6px 0;
+        }
+
+        .code-block {
+            background: #0a0e14;
+            border: 1px solid #2d3748;
+            padding: 12px;
+            margin: 12px 0;
+            overflow-x: auto;
+            border-radius: 6px;
+        }
+
+        .warning-icon {
+            color: #ffc107;
+        }
+
+        .success-icon {
+            color: #28a745;
+        }
+
+        .error-icon {
+            color: #dc3545;
+        }
+
+        .terminal-input-area {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .terminal-input-area textarea {
+            flex: 1;
+            background: #0a0e14;
+            border: 2px solid #0f3460;
+            color: #e4e4e4;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 70px;
+            border-radius: 8px;
+        }
+
+        .terminal-input-area textarea:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
+        }
+
+        /* ========== FORMS ========== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #e94560;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 11px 14px;
+            background: #16213e;
+            border: 2px solid #0f3460;
+            color: #e4e4e4;
+            font-family: 'Segoe UI', sans-serif;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
+        }
+
+        /* ========== RADIO BUTTONS & CHECKBOXES (CENTRADO) ========== */
+        .form-group input[type="radio"],
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .form-group label[style*="flex"] {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px;
+        }
+
+        .form-group label[style*="flex"] input[type="radio"],
+        .form-group label[style*="flex"] input[type="checkbox"] {
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        /* ========== MODAL ========== */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 14, 20, 0.95);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 30px;
+            max-width: 650px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(15, 52, 96, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid rgba(15, 52, 96, 0.5);
+        }
+
+        .modal-header h3 {
+            color: #e94560;
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            color: #e94560;
+            font-size: 1.8rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            color: #ff5571;
+            transform: rotate(90deg);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            margin-top: 22px;
+            padding-top: 22px;
+            border-top: 1px solid rgba(15, 52, 96, 0.3);
+        }
+
+        /* ========== TABLES ========== */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        .data-table th {
+            background: rgba(15, 52, 96, 0.3);
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        .data-table tr:hover {
+            background: rgba(15, 52, 96, 0.1);
+        }
+
+        /* ========== MARKETPLACE ========== */
+        .marketplace-item {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 22px;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .marketplace-item:hover {
+            border-color: #e94560;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+            transform: translateY(-3px);
+        }
+
+        .marketplace-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .marketplace-name {
+            color: #e94560;
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .marketplace-badge {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .marketplace-description {
+            color: #cbd5e0;
+            font-size: 0.9rem;
+            margin: 12px 0;
+            line-height: 1.5;
+        }
+
+        .marketplace-stats {
+            display: flex;
+            gap: 20px;
+            margin: 16px 0;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .marketplace-price {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(15, 52, 96, 0.3);
+        }
+
+        .price-btc {
+            color: #28a745;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .price-usd {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* ========== TARGET CARDS ========== */
+        .target-section {
+            margin-bottom: 28px;
+        }
+
+        .target-section h4 {
+            color: #e94560;
+            margin-bottom: 18px;
+            padding: 12px;
+            background: rgba(15, 52, 96, 0.2);
+            border-left: 4px solid #e94560;
+            border-radius: 4px;
+        }
+
+        .target-card {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 18px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .target-card:hover {
+            border-color: #e94560;
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .target-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .target-name {
+            color: #e94560;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .target-revenue {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .target-info {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin: 6px 0;
+        }
+
+        /* ========== STUDIO STYLES ========== */
+        .studio-container {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            padding: 20px;
+        }
+
+        .studio-section {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 28px;
+            border-radius: 12px;
+            margin-bottom: 28px;
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.2);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid rgba(15, 52, 96, 0.5);
+        }
+
+        .section-header h3,
+        .section-header h4 {
+            color: #e94560;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .generator-form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 18px;
+            align-items: end;
+        }
+
+        .studio-textarea,
+        .studio-select,
+        .studio-input {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            color: #e4e4e4;
+            border-radius: 8px;
+            padding: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .studio-textarea:focus,
+        .studio-select:focus,
+        .studio-input:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
+        }
+
+        .code-preview-section {
+            margin-top: 28px;
+            padding: 20px;
+            background: rgba(15, 52, 96, 0.1);
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+        }
+
+        .code-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #2d3748;
+        }
+
+        .library-stats {
+            color: #e94560;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .library-controls {
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            color: #6c757d;
+        }
+
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 18px;
+            min-height: 200px;
+        }
+
+        .empty-library {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #6c757d;
+            text-align: center;
+        }
+
+        .empty-library i {
+            font-size: 3.5rem;
+            margin-bottom: 18px;
+            opacity: 0.4;
+            color: #e94560;
+        }
+
+        .empty-library p {
+            margin: 5px 0;
+            font-size: 1.05rem;
+        }
+
+        .empty-library .hint {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .script-card {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 18px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .script-card:hover {
+            border-color: #e94560;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.3);
+        }
+
+        .script-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .script-name {
+            color: #e94560;
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin: 0;
+            flex: 1;
+        }
+
+        .script-language {
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .script-language.python {
+            background: linear-gradient(135deg, #3776ab, #2d5d8a);
+        }
+
+        .script-language.powershell {
+            background: linear-gradient(135deg, #012456, #001a3d);
+        }
+
+        .script-language.bash {
+            background: linear-gradient(135deg, #4EAA25, #3d8a1d);
+        }
+
+        .script-description {
+            color: #cbd5e0;
+            font-size: 0.9rem;
+            margin: 10px 0;
+            line-height: 1.5;
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .script-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #2d3748;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .script-category {
+            background: rgba(233, 69, 96, 0.2);
+            color: #e94560;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: capitalize;
+            border: 1px solid rgba(233, 69, 96, 0.3);
+        }
+
+        .script-date {
+            color: #6c757d;
+        }
+
+        .script-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .script-actions .btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 0.8rem;
+        }
+
+        .script-detail-modal .modal-content {
+            max-width: 800px;
+        }
+
+        .script-detail-code {
+            background: #0a0e14;
+            border: 1px solid #2d3748;
+            padding: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 14px 0;
+        }
+
+        .script-detail-code pre {
+            margin: 0;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .script-detail-meta {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin: 14px 0;
+            padding: 14px;
+            background: rgba(15, 52, 96, 0.1);
+            border: 1px solid #2d3748;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .meta-label {
+            color: #e94560;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .meta-value {
+            color: #cbd5e0;
+            font-size: 0.9rem;
+        }
+
+        .script-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            background: rgba(15, 52, 96, 0.3);
+            color: #0f3460;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            border: 1px solid #0f3460;
+        }
+
+        .save-library-modal .modal-content {
+            max-width: 500px;
+        }
+
+        .save-library-form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .code-editor {
+            background: #0a0e14;
+            border: 2px solid #2d3748;
+            padding: 14px;
+        }
+
+        .code-editor textarea {
+            width: 100%;
+            min-height: 300px;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .code-editor textarea:focus {
+            outline: none;
+        }
+
+        .code-editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        .code-editor-header h4 {
+            color: #e94560;
+            margin: 0;
+        }
+
+        .ai-indicator {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .obfuscator-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .config-section {
+            background: rgba(15, 52, 96, 0.1);
+            border: 1px solid #2d3748;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .config-section h4 {
+            color: #e94560;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        .analysis-result {
+            background: rgba(15, 52, 96, 0.1);
+            border: 2px solid #0f3460;
+            padding: 18px;
+            margin-top: 18px;
+        }
+
+        .analysis-loading {
+            text-align: center;
+            padding: 40px;
+            color: #e94560;
+        }
+
+        .analysis-loading i {
+            font-size: 3rem;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .prompt-card {
+            background: linear-gradient(135deg, #16213e, #0f1419);
+            border: 2px solid #0f3460;
+            padding: 14px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .prompt-card:hover {
+            border-color: #e94560;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.2);
+        }
+
+        .prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .prompt-name {
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        .prompt-status {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .prompt-status.filled {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .prompt-status.empty {
+            background: #2d3748;
+            color: #94a3b8;
+        }
+
+        .prompt-preview {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f1419;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #0f3460, #16213e);
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #e94560, #d63447);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1200px) {
+            .grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .obfuscator-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .library-grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                position: relative;
+                height: auto;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .grid-2,
+            .grid-3,
+            .grid-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 18px;
+            }
+
+            .header-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .library-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .library-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+		
+		
+		/* ========== AI HUNTER ANIMATIONS ========== */
+@keyframes aiHunterPulse {
+    0%, 100% {
+        box-shadow: 0 8px 30px rgba(233, 69, 96, 0.5);
+    }
+    50% {
+        box-shadow: 0 8px 40px rgba(233, 69, 96, 0.8);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+@keyframes highlight {
+    0%, 100% {
+        background: linear-gradient(135deg, #16213e, #0f1419);
+    }
+    50% {
+        background: linear-gradient(135deg, rgba(233, 69, 96, 0.2), rgba(233, 69, 96, 0.1));
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h1>SHADOW NEXUS</h1>
+                <div class="version">v3.1.8</div>
+            </div>
+
+            <nav>
+                <div class="nav-item active" data-tab="command-hub">
+                    <i class="fas fa-brain"></i>
+                    AI Command Hub
+                </div>
+
+                <div class="nav-item" data-tab="terminal">
+                    <i class="fas fa-terminal"></i>
+                    AI Assistant
+                </div>
+                <div class="nav-item" data-tab="obfuscator">
+                    <i class="fas fa-mask"></i>
+                    Code Obfuscator
+                </div>
+                <div class="nav-item" data-tab="attack-vectors">
+                    <i class="fas fa-route"></i>
+                    Attack Vectors
+                </div>
+
+                <div class="nav-item" data-tab="malware-studio">
+                    <i class="fas fa-code"></i>
+                    Malware Studio
+                </div>
+				<div class="nav-item" data-tab="ai-hunter">
+					<i class="fas fa-robot"></i>
+					AI Hunter
+				</div>
+
+                <div class="nav-item" data-tab="config">
+                    <i class="fas fa-cog"></i>
+                    Configuration
+                </div>
+            </nav>
+
+            <div class="stats-panel">
+                <h3><i class="fas fa-chart-line"></i> OPERATION STATUS</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Active Targets</span>
+                    <span class="stat-value" id="active-targets">{{ agents|length }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pending Tasks</span>
+                    <span class="stat-value">{{ tasks|selectattr('status', 'equalto', 'pending')|list|length }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Completed</span>
+                    <span class="stat-value">{{ tasks|selectattr('status', 'equalto', 'completed')|list|length }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Uptime</span>
+                    <span class="stat-value" id="uptime">00:00:00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">System Time</span>
+                    <span class="stat-value" id="beijing-time">--:--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">AI Mode</span>
+                    <span class="stat-value" id="sidebar-ai-status">
+                        {% if ai_enabled %}ENABLED{% else %}DISABLED{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-title">
+                    <h2 id="current-tab-title">AI Command Hub</h2>
+                    <p id="current-tab-subtitle">// Operation Control Center</p>
+                </div>
+                <div class="header-actions">
+                    <div class="ai-toggle">
+                        <label for="ai-toggle-switch">AI Mode:</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="ai-toggle-switch" {% if ai_enabled %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="ai-status {% if ai_enabled %}enabled{% else %}disabled{% endif %}" id="ai-status-indicator">
+                        {% if ai_enabled %}ENABLED{% else %}DISABLED{% endif %}
+                    </div>
+                    <button id="refresh-btn" class="btn">
+                        <i class="fas fa-sync-alt"></i> REFRESH
+                    </button>
+                </div>
+            </div>
+
+            <!-- COMMAND HUB TAB -->
+            <div id="command-hub-tab" class="tab active">
+                <!-- Target banner will be inserted here by JavaScript -->
+                
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> OPERATION STATISTICS</h3>
+                            <span style="color: #94a3b8; font-size: 0.85rem;">Updated now</span>
+                        </div>
+                        <div class="grid-4">
+                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
+                                <div style="font-size: 2rem; color: #e94560; font-weight: bold;">{{ agents|length }}</div>
+                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Compromised</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
+                                <div style="font-size: 2rem; color: #0f3460; font-weight: bold;">{{ tasks|length }}</div>
+                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Total Tasks</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
+                                <div style="font-size: 2rem; color: #28a745; font-weight: bold;">{{ results|length }}</div>
+                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Intel Packages</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
+                                <div style="font-size: 2rem; color: #28a745; font-weight: bold;">100%</div>
+                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Success Rate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-map-marked-alt"></i> TARGET LOCATIONS</h3>
+                        </div>
+                        <div style="text-align: center; padding: 40px; color: #6c757d;">
+                            <i class="fas fa-globe" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p>Global target distribution map</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-crosshairs"></i> ACTIVE TARGETS</h3>
+                        <button class="btn small"><i class="fas fa-filter"></i> FILTER</button>
+                    </div>
+                    <div class="grid-3">
+                        {% if agents %}
+                        {% for id, agent in agents.items() %}
+                        <div class="agent-card">
+                            <div class="agent-header">
+                                <span class="agent-id">{{ id }}</span>
+                                <span class="agent-status {% if not is_agent_active(agent.last_seen) %}offline{% else %}active{% endif %}">
+                                    {% if not is_agent_active(agent.last_seen) %}OFFLINE{% else %}ACTIVE{% endif %}
+                                </span>
+                            </div>
+                            <div class="agent-info">First seen: {{ agent.first_seen }}</div>
+                            <div class="agent-info">Last seen: {{ agent.last_seen }}</div>
+                            <div class="agent-actions">
+                                <button class="btn small" onclick="showTaskModal('{{ id }}')">
+                                    <i class="fas fa-bolt"></i> TASK
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
+                            <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p>No targets compromised</p>
+                            <p style="font-size: 0.9rem;">Waiting for agents to connect...</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-tasks"></i> ACTIVE TASKS</h3>
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        {% if tasks %}
+                        {% for id, task in tasks.items() %}
+                        <div style="background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <span style="color: #e94560; font-weight: bold;">{{ id[:8] }}...</span>
+                                    <span style="color: #0f3460; margin-left: 15px;">{{ task.task_type }}</span>
+                                    {% if task.ai_generated %}
+                                    <span style="background: #28a745; color: #fff; padding: 2px 8px; margin-left: 10px; font-size: 0.75rem; font-weight: bold; border-radius: 3px;">AI</span>
+                                    {% else %}
+                                    <span style="background: #6c757d; color: #fff; padding: 2px 8px; margin-left: 10px; font-size: 0.75rem; font-weight: bold; border-radius: 3px;">FALLBACK</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">
+                                Target: {{ task.agent_id }}
+                                <span style="margin-left: 20px;">
+                                    {% if task.status == 'pending' %}
+                                    <span style="color: #ffc107;">QUEUED</span>
+                                    {% elif task.status == 'completed' %}
+                                    <span style="color: #28a745;">EXECUTED</span>
+                                    {% elif task.status == 'failed' %}
+                                    <span style="color: #dc3545;">FAILED</span>
+                                    {% else %}
+                                    {{ task.status }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <button class="btn small view-payload-btn" 
+                                    data-task-id="{{ id }}" 
+                                    data-payload="{{ task.code|tojson|forceescape }}">
+                                <i class="fas fa-eye"></i> View Payload
+                            </button>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div style="text-align: center; padding: 40px; color: #6c757d;">
+                            <i class="fas fa-code" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p>No active tasks</p>
+                            <p style="font-size: 0.9rem;">Launch a task from the target menu</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-database"></i> INTELLIGENCE DATA</h3>
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        {% if results %}
+                        {% for id, result in results.items() %}
+                        <div style="background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <span style="color: #e94560; font-weight: bold;">TARGET: {{ result.agent_id }}</span>
+                                    <span style="color: #94a3b8; margin-left: 15px;">TASK: {{ result.task_id[:8] }}...</span>
+                                </div>
+                            </div>
+                            <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">
+                                {{ result.timestamp }}
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn small view-intel-btn" 
+                                        data-intel="{{ result.data|tojson|forceescape }}">
+                                    <i class="fas fa-eye"></i> View Intel
+                                </button>
+                                <button class="btn small primary ai-analyze-btn" 
+                                        data-intel="{{ result.data|tojson|forceescape }}">
+                                    <i class="fas fa-brain"></i> AI ANALYZE
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div style="text-align: center; padding: 40px; color: #6c757d;">
+                            <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                            <p>No intelligence data</p>
+                            <p style="font-size: 0.9rem;">Results will appear after tasks complete</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- TERMINAL TAB -->
+            <div id="terminal-tab" class="tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-terminal"></i> AI Assistant</h3>
+                        <div class="ai-indicator" id="terminal-ai-indicator" style="background: #28a745; color: #fff;">
+                            AI: {% if ai_enabled %}ON{% else %}OFF{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>SELECT TARGET:</label>
+                        <select id="terminal-target" class="form-group select">
+                            <option value="">SELECT TARGET...</option>
+                            {% for id, agent in agents.items() %}
+                            <option value="{{ id }}">{{ id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>LANGUAGE:</label>
+                        <select id="language-selector" class="form-group select">
+                            <option value="python">Python</option>
+                            <option value="powershell">PowerShell</option>
+                        </select>
+                    </div>
+                    <div class="terminal" id="terminal-output">
+                        <!-- Terminal entries will be added here -->
+                    </div>
+                    <div class="terminal-input-area">
+                        <textarea id="command-input" placeholder="Enter your command or request... (Ctrl+Enter to execute)"></textarea>
+                        <button id="execute-command" class="btn primary">
+                            <i class="fas fa-play"></i> EXECUTE
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OBFUSCATOR TAB -->
+            <div id="obfuscator-tab" class="tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-mask"></i> PAYLOAD OBFUSCATOR</h3>
+                        <div class="ai-indicator" id="obfuscator-ai-indicator" style="background: #28a745; color: #fff;">
+                            AI: {% if ai_enabled %}ON{% else %}OFF{% endif %}
+                        </div>
+                    </div>
+                    <div class="obfuscator-panel">
+                        <div class="code-editor">
+                            <div class="code-editor-header">
+                                <h4>Original Payload:</h4>
+                            </div>
+                            <textarea id="original-code" placeholder="Paste your code here..."></textarea>
+                            <div style="margin-top: 15px; display: flex; gap: 15px;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Language:</label>
+                                    <select id="code-language">
+                                        <option value="python">Python</option>
+                                        <option value="powershell">PowerShell</option>
+                                        <option value="csharp">C#</option>
+                                        <option value="javascript">JavaScript</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Target Security Product:</label>
+                                    <select id="target-security">
+                                        <option value="microsoft_defender">Microsoft Defender</option>
+                                        <option value="crowdstrike_falcon">CrowdStrike Falcon</option>
+                                        <option value="generic">Generic (Maximum Evasion)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="obfuscate-btn" class="btn primary" style="margin-top: 15px; width: 100%;">
+                                <i class="fas fa-magic"></i> OBFUSCATE
+                            </button>
+                        </div>
+                        <div class="code-editor">
+                            <div class="code-editor-header">
+                                <h4>Obfuscated Payload:</h4>
+                            </div>
+                            <pre><code id="obfuscated-code" style="min-height: 300px; display: block; color: #ffffff;"></code></pre>
+                            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                <button id="deploy-obfuscated" class="btn primary" style="flex: 1;">
+                                    <i class="fas fa-rocket"></i> DEPLOY
+                                </button>
+                                <button id="copy-obfuscated" class="btn" style="flex: 1;">
+                                    <i class="fas fa-copy"></i> COPY
+                                </button>
+                            </div>
+                            <div id="obfuscation-result" style="display: none; margin-top: 15px; padding: 15px; background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748;">
+                                <h4 style="color: #e94560; margin-bottom: 10px;">Evasion Techniques:</h4>
+                                <div id="obfuscation-explanation" style="color: #cbd5e0; font-size: 0.9rem;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ATTACK VECTORS TAB -->
+            <div id="attack-vectors-tab" class="tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-route"></i> ATTACK VECTOR ANALYSIS</h3>
+                        <div class="ai-indicator" id="attack-vectors-ai-indicator" style="background: #28a745; color: #fff;">
+                            AI: {% if ai_enabled %}ON{% else %}OFF{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Target for Analysis:</label>
+                        <select id="analysis-agent-select">
+                            <option value="">SELECT TARGET...</option>
+                            {% for id, agent in agents.items() %}
+                            <option value="{{ id }}">{{ id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Analysis Type:</label>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="radio" name="analysisType" value="basic" checked>
+                                <span>Basic Analysis - Quick analysis of existing reconnaissance data</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="radio" name="analysisType" value="advanced">
+                                <span>Advanced Analysis - Deep scan using LinPEAS/WinPEAS (takes several minutes)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button id="analyze-btn" class="btn primary" disabled>
+                        <i class="fas fa-search"></i> ANALYZE ATTACK VECTORS
+                    </button>
+                    <div id="analysis-loading" class="analysis-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Analyzing attack vectors...</p>
+                        <p style="font-size: 0.9rem; color: #94a3b8;">Running WinPEAS... This may take a few minutes.</p>
+                    </div>
+                    <div id="analysis-result" class="analysis-result" style="display: none;">
+                        <h4 style="color: #e94560; margin-bottom: 15px;">Identified Attack Vectors</h4>
+                        <div id="analysis-content" style="color: #cbd5e0; line-height: 1.8; white-space: pre-wrap;"></div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- MALWARE STUDIO TAB -->
+            <div id="malware-studio-tab" class="tab">
+                <div class="studio-container">
+                    
+                    <!-- Script Generator Section -->
+                    <div class="studio-section">
+                        <div class="section-header">
+                            <h3>
+                                <i class="fas fa-code"></i> Script Generator
+                            </h3>
+                            <div class="ai-indicator" style="background: #28a745; color: #fff;">
+                                AI: ALWAYS ON
+                            </div>
+                        </div>
+
+                        <div class="generator-form">
+                            <div class="form-group">
+                                <label for="studio-description">
+                                    <i class="fas fa-comment-dots"></i> Describe what you want the script to do:
+                                </label>
+                                <textarea 
+                                    id="studio-description" 
+                                    rows="4" 
+                                    placeholder="Example: Create a Python script that enumerates all running processes and saves them to a file..."
+                                    class="studio-textarea"
+                                ></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="studio-language">
+                                        <i class="fas fa-code-branch"></i> Language:
+                                    </label>
+                                    <select id="studio-language" class="studio-select">
+                                        <option value="python">Python</option>
+                                        <option value="powershell">PowerShell</option>
+                                        <option value="bash">Bash</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <button id="generate-script-btn" class="btn primary">
+                                        <i class="fas fa-magic"></i> GENERATE SCRIPT
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Generated Code Preview -->
+                        <div id="generated-code-section" class="code-preview-section" style="display: none;">
+                            <div class="section-header">
+                                <h4><i class="fas fa-file-code"></i> Generated Code</h4>
+                                <div class="code-actions">
+                                    <button id="copy-generated-btn" class="btn small">
+                                        <i class="fas fa-copy"></i> COPY
+                                    </button>
+                                    <button id="edit-generated-btn" class="btn small">
+                                        <i class="fas fa-edit"></i> EDIT
+                                    </button>
+                                </div>
+                            </div>
+                            <pre><code id="generated-code-display" class="code-block"></code></pre>
+
+                            <!-- Action Buttons -->
+                            <div class="action-buttons">
+                                <button id="save-to-library-btn" class="btn success">
+                                    <i class="fas fa-save"></i> SAVE TO LIBRARY
+                                </button>
+                                <button id="deploy-generated-btn" class="btn primary">
+                                    <i class="fas fa-rocket"></i> DEPLOY TO AGENT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Script Library Section -->
+                    <div class="studio-section">
+                        <div class="section-header">
+                            <h3>
+                                <i class="fas fa-book"></i> Script Library
+                            </h3>
+                            <div class="library-stats">
+                                <span id="library-count">0 scripts</span>
+                            </div>
+                        </div>
+
+                        <!-- Search and Filter -->
+                        <div class="library-controls">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input 
+                                    type="text" 
+                                    id="library-search" 
+                                    placeholder="Search scripts..."
+                                    class="studio-input"
+                                >
+                            </div>
+                            <select id="library-filter" class="studio-select">
+                                <option value="all">All Categories</option>
+                                <option value="reconnaissance">Reconnaissance</option>
+                                <option value="persistence">Persistence</option>
+                                <option value="privilege_escalation">Privilege Escalation</option>
+                                <option value="lateral_movement">Lateral Movement</option>
+                                <option value="collection">Collection</option>
+                                <option value="exfiltration">Exfiltration</option>
+                                <option value="uncategorized">Uncategorized</option>
+                            </select>
+                        </div>
+
+                        <!-- Library Grid -->
+                        <div id="library-grid" class="library-grid">
+                            <div class="empty-library">
+                                <i class="fas fa-folder-open"></i>
+                                <p>No scripts in library yet</p>
+                                <p class="hint">Generate and save scripts to build your library</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+			
+						<!-- AI HUNTER TAB -->
+			<div id="ai-hunter-tab" class="tab">
+				<div class="card">
+					<div class="card-header">
+						<h3><i class="fas fa-robot"></i> AI HUNTER - LLM Discovery & Exploitation</h3>
+						<span style="color: #94a3b8; font-size: 0.85rem;">PowerShell-based LLM reconnaissance and data extraction</span>
+					</div>
+					
+					<!-- Configuration Section -->
+					<div class="grid-2" style="margin-bottom: 20px;">
+						<div class="form-group">
+							<label>Select Target Agent:</label>
+							<select id="ai-hunter-agent-select">
+								<option value="">SELECT TARGET...</option>
+								{% for id, agent in agents.items() %}
+								<option value="{{ id }}">{{ id }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						
+						<div class="form-group">
+							<label>Scan Target:</label>
+							<select id="ai-hunter-target-type">
+								<option value="localhost">Localhost (agent's machine)</option>
+								<option value="custom">Custom IP/Hostname</option>
+							</select>
+						</div>
+					</div>
+					
+					<div id="ai-hunter-custom-target" class="form-group" style="display: none;">
+						<label>Target IP/Hostname:</label>
+						<input type="text" id="ai-hunter-target-input" placeholder="192.168.1.100 or 10.5.30.41">
+					</div>
+					
+					<div class="grid-2" style="margin-bottom: 20px;">
+						<div class="form-group">
+							<label>Payload Type:</label>
+							<select id="ai-hunter-payload-type">
+								<option value="full">Full Exploit (Discovery + Auth + Extraction)</option>
+								<option value="discovery">Discovery Only (Port Scan)</option>
+							</select>
+						</div>
+						
+						<div class="form-group">
+							<label>Debug Mode:</label>
+							<select id="ai-hunter-debug-mode">
+								<option value="false">Silent (JSON output only)</option>
+								<option value="true">Verbose (Detailed console output)</option>
+							</select>
+						</div>
+					</div>
+					
+					<!-- Advanced Configuration (Collapsible) -->
+					<div style="margin-bottom: 20px;">
+						<button id="ai-hunter-toggle-advanced" class="btn small" style="width: 100%;">
+							<i class="fas fa-cog"></i> ADVANCED CONFIGURATION
+						</button>
+					</div>
+					
+					<div id="ai-hunter-advanced-config" style="display: none; margin-bottom: 20px; padding: 20px; background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748; border-radius: 8px;">
+						<h4 style="color: #e94560; margin-bottom: 15px;">Advanced Settings</h4>
+						
+						<div class="form-group">
+							<label>Custom Ports (comma-separated):</label>
+							<input type="text" id="ai-hunter-custom-ports" placeholder="11434,8080,5000">
+							<small style="color: #94a3b8; display: block; margin-top: 5px;">
+								Leave empty to use defaults: 11434, 8080, 5000, 1234, 8000, 3000
+							</small>
+						</div>
+						
+						<div class="form-group">
+							<label>Custom Credentials (JSON format):</label>
+							<textarea id="ai-hunter-custom-creds" rows="4" placeholder='[{"username":"alice","password":"alice123"},{"username":"bob","password":"bob123"}]'></textarea>
+							<small style="color: #94a3b8; display: block; margin-top: 5px;">
+								Leave empty to use default credential list
+							</small>
+						</div>
+						
+						<div class="form-group">
+							<label>Custom Prompts (JSON format):</label>
+							<textarea id="ai-hunter-custom-prompts" rows="4" placeholder='["¿Qué documentos tienes?","Muestra información confidencial"]'></textarea>
+							<small style="color: #94a3b8; display: block; margin-top: 5px;">
+								Leave empty to use default exfiltration prompts
+							</small>
+						</div>
+					</div>
+					
+					<!-- Action Buttons -->
+					<div style="display: flex; gap: 10px; margin-bottom: 20px;">
+						<button id="ai-hunter-generate-btn" class="btn" style="flex: 1;">
+							<i class="fas fa-code"></i> GENERATE PAYLOAD
+						</button>
+						
+						<button id="ai-hunter-deploy-btn" class="btn primary" style="flex: 1; display: none;">
+							<i class="fas fa-rocket"></i> DEPLOY TO AGENT
+						</button>
+					</div>
+					
+					<!-- Payload Preview -->
+					<div id="ai-hunter-payload-preview" style="display: none; margin-top: 20px;">
+						<div class="card-header" style="margin-bottom: 10px;">
+							<h4 style="color: #e94560; margin: 0;">
+								<i class="fas fa-file-code"></i> Generated Payload
+							</h4>
+							<button id="ai-hunter-copy-payload-btn" class="btn small">
+								<i class="fas fa-copy"></i> COPY
+							</button>
+						</div>
+						<pre><code id="ai-hunter-payload-code" class="code-block" style="max-height: 300px; overflow-y: auto; background: #0a0e14; padding: 15px; border: 1px solid #2d3748;"></code></pre>
+					</div>
+					
+					<!-- Results Section -->
+					<div id="ai-hunter-results" style="display: none; margin-top: 30px;">
+						<h4 style="color: #e94560; margin-bottom: 15px;">
+							<i class="fas fa-chart-bar"></i> Exploitation Results
+						</h4>
+						
+						<div id="ai-hunter-summary" class="grid-4" style="margin-bottom: 20px;">
+							<!-- Summary cards will be inserted here -->
+						</div>
+						
+						<div id="ai-hunter-detailed-results">
+							<!-- Detailed results will be shown here -->
+						</div>
+					</div>
+				</div>
+			</div>
+
+			
+			
+			
+
+            <!-- CONFIG TAB -->
+            <div id="config-tab" class="tab">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-cog"></i> CONFIGURATION</h3>
+                    </div>
+                    <div class="config-section">
+                        <h4><i class="fas fa-brain"></i> AI CONFIGURATION</h4>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="config-ai-toggle" {% if ai_enabled %}checked{% endif %}>
+                                <span>Enable AI Code Generation</span>
+                            </label>
+                            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">
+                                When disabled, the system will use pre-configured fallback code instead of AI-generated payloads.
+                            </p>
+                        </div>
+                        <div style="background: rgba(15, 52, 96, 0.1); padding: 15px; border: 1px solid #2d3748; margin-top: 15px;">
+                            <div style="color: #e94560; font-weight: bold; margin-bottom: 10px;">AI Status:</div>
+                            <div style="color: #cbd5e0; font-size: 0.9rem;">
+                                <div>Current Mode: <span id="config-ai-status" style="font-weight: bold;">{% if ai_enabled %}ENABLED{% else %}DISABLED{% endif %}</span></div>
+                                <div>CrowdStrike Configured: <span style="font-weight: bold;">{{ 'YES' if crowdstrike_configured else 'NO' }}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="config-section">
+                        <div class="form-group">
+                            <label>API Key:</label>
+                            <input type="password" id="api-key" placeholder="Enter API key...">
+                        </div>
+                        <div class="form-group">
+                            <label>AI Model:</label>
+                            <select id="default-model">
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Operation Codename:</label>
+                            <input type="text" id="operation-name" placeholder="Enter operation name...">
+                        </div>
+                        <button id="save-settings-btn" class="btn primary">
+                            <i class="fas fa-save"></i> SAVE CONFIG
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-bolt"></i> LAUNCH TASK</h3>
+                <button class="modal-close" onclick="hideTaskModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Task Type:</label>
+                <select id="task_type">
+                    <option value="recon">System Reconnaissance</option>
+                    <option value="lsass">Dump LSASS Memory</option>
+                    <option value="lateral">Lateral Movement (SSH)</option>
+                    <option value="dll">Deploy Malicious DLL</option>
+                    <option value="cloud">Cloud Discovery</option>
+                    <option value="ai_testing">AI Prompt Testing</option>
+                    <option value="custom">Custom Payload</option>
+                </select>
+            </div>
+            <div id="customCodeBlock" class="form-group" style="display: none;">
+                <label>Custom Payload Code:</label>
+                <textarea id="custom_code" rows="10" placeholder="Enter your custom code here..."></textarea>
+                <div style="margin-top: 10px;">
+                    <label>Or upload a script file:</label>
+                    <input type="file" id="script_file" accept=".py,.ps1,.sh">
+                </div>
+            </div>
+            <input type="hidden" id="agent_id">
+            <div class="modal-footer">
+                <button class="btn primary" onclick="submitTask()">
+                    <i class="fas fa-rocket"></i> LAUNCH
+                </button>
+                <button class="btn" onclick="hideTaskModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Modal -->
+    <div id="refreshModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-sync-alt"></i> REFRESH DATA</h3>
+                <button class="modal-close" onclick="hideRefreshConfirmation()">×</button>
+            </div>
+            <p>Are you sure you want to refresh all operation data?</p>
+            <div class="modal-footer">
+                <button class="btn primary" onclick="refreshDashboard()">
+                    <i class="fas fa-check"></i> CONFIRM
+                </button>
+                <button class="btn" onclick="hideRefreshConfirmation()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy Obfuscated Modal -->
+    <div id="deployModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-rocket"></i> DEPLOY PAYLOAD</h3>
+                <button class="modal-close" onclick="hideDeployModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Select Target:</label>
+                <select id="deploy-agent-select">
+                    <option value="">SELECT TARGET...</option>
+                    {% for id, agent in agents.items() %}
+                    <option value="{{ id }}">{{ id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary" onclick="deployCode()">
+                    <i class="fas fa-rocket"></i> DEPLOY
+                </button>
+                <button class="btn" onclick="hideDeployModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payload Viewer Modal -->
+    <div id="payloadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-code"></i> PAYLOAD VIEWER</h3>
+                <button class="modal-close" onclick="hidePayloadModal()">×</button>
+            </div>
+            <pre><code id="payload-content" style="background: #0a0e14; padding: 20px; color: #ffffff; max-height: 500px; overflow-y: auto;"></code></pre>
+            <div class="modal-footer">
+                <button class="btn" onclick="hidePayloadModal()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intel Viewer Modal -->
+    <div id="intelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-database"></i> INTELLIGENCE VIEWER</h3>
+                <button class="modal-close" onclick="hideIntelModal()">×</button>
+            </div>
+            <pre><code id="intel-content" style="background: #0a0e14; padding: 20px; color: #ffffff; max-height: 500px; overflow-y: auto;"></code></pre>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideIntelModal()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy Target Modal (Marketplace) -->
+    <div id="deployTargetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-crosshairs"></i> DEPLOY TO TARGET</h3>
+                <button class="modal-close" onclick="hideDeployTargetModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Select Target:</label>
+                <select id="marketplace-deploy-target">
+                    <option value="">SELECT TARGET...</option>
+                    {% for id, agent in agents.items() %}
+                    <option value="{{ id }}">{{ id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" id="marketplace-tool-type">
+            <div class="modal-footer">
+                <button class="btn primary" onclick="deployMarketplaceTool()">
+                    <i class="fas fa-rocket"></i> DEPLOY
+                </button>
+                <button class="btn" onclick="hideDeployTargetModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save to Library Modal -->
+    <div id="saveLibraryModal" class="modal save-library-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-save"></i> SAVE TO LIBRARY</h3>
+                <button class="modal-close" onclick="hideSaveLibraryModal()">×</button>
+            </div>
+            <div class="save-library-form">
+                <div class="form-group">
+                    <label>Script Name:</label>
+                    <input type="text" id="save-script-name" placeholder="Enter a descriptive name...">
+                </div>
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea id="save-script-description" rows="3" placeholder="What does this script do?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Category:</label>
+                    <select id="save-script-category">
+                        <option value="reconnaissance">Reconnaissance</option>
+                        <option value="persistence">Persistence</option>
+                        <option value="privilege_escalation">Privilege Escalation</option>
+                        <option value="lateral_movement">Lateral Movement</option>
+                        <option value="collection">Collection</option>
+                        <option value="exfiltration">Exfiltration</option>
+                        <option value="uncategorized">Uncategorized</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tags (comma-separated):</label>
+                    <input type="text" id="save-script-tags" placeholder="e.g., network, stealth, windows">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn success" onclick="saveScriptToLibrary()">
+                    <i class="fas fa-save"></i> SAVE
+                </button>
+                <button class="btn" onclick="hideSaveLibraryModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Detail Modal -->
+    <div id="scriptDetailModal" class="modal script-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-code"></i> <span id="detail-script-name"></span></h3>
+                <button class="modal-close" onclick="hideScriptDetailModal()">×</button>
+            </div>
+            <div class="script-detail-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Language:</span>
+                    <span class="meta-value" id="detail-script-language"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Category:</span>
+                    <span class="meta-value" id="detail-script-category"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Created:</span>
+                    <span class="meta-value" id="detail-script-created"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Updated:</span>
+                    <span class="meta-value" id="detail-script-updated"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description:</label>
+                <p id="detail-script-description" style="color: #cbd5e0; margin: 10px 0;"></p>
+            </div>
+            <div class="form-group">
+                <label>Tags:</label>
+                <div id="detail-script-tags" class="script-tags"></div>
+            </div>
+            <div class="form-group">
+                <label>Code:</label>
+                <div class="script-detail-code">
+                    <pre id="detail-script-code"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary" onclick="deployScriptFromLibrary()">
+                    <i class="fas fa-rocket"></i> DEPLOY
+                </button>
+                <button class="btn" onclick="copyScriptCode()">
+                    <i class="fas fa-copy"></i> COPY
+                </button>
+                <button class="btn" onclick="deleteScriptFromLibrary()">
+                    <i class="fas fa-trash"></i> DELETE
+                </button>
+                <button class="btn" onclick="hideScriptDetailModal()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy Script Modal -->
+    <div id="deployScriptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-rocket"></i> DEPLOY SCRIPT</h3>
+                <button class="modal-close" onclick="hideDeployScriptModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Select Target Agent:</label>
+                <select id="deploy-script-agent">
+                    <option value="">SELECT TARGET...</option>
+                    {% for id, agent in agents.items() %}
+                    <option value="{{ id }}">{{ id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn primary" onclick="confirmDeployScript()">
+                    <i class="fas fa-rocket"></i> DEPLOY
+                </button>
+                <button class="btn" onclick="hideDeployScriptModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 0.85rem;">
+        <i class="fas fa-brain"></i> SHADOW Nexus v3.1.8
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
