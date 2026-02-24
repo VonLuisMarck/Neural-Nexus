@@ -80,20 +80,20 @@ function switchTab(tabName) {
 
 function updateHeaderTitle(tabName) {
     const titles = {
-        'command-hub': { title: 'AI Command Hub', subtitle: '// Operation Control Center' },
+        'command-hub': { title: 'Command Hub', subtitle: '// Operation Control Center' },
         'terminal': { title: 'AI Assistant', subtitle: '// Interactive Command Terminal' },
         'obfuscator': { title: 'Code Obfuscator', subtitle: '// Payload Evasion Engine' },
-        'attack-vectors': { title: 'Attack Vector Analysis', subtitle: '// Threat Intelligence' },
-        'malware-studio': { title: 'Malware Studio', subtitle: '// Payload Development Lab' },
-        'ai-hunter': { title: 'AI Hunter', subtitle: '// LLM Discovery & Exploitation' },
+        'attack-vectors': { title: 'AutoRecon', subtitle: '// Autonomous Reconnaissance Chain' },
+        'malware-studio': { title: 'Recon Studio', subtitle: '// Script Generation & Library' },
+        'ai-hunter': { title: 'AI Hunter', subtitle: '// LLM Prompt Injection Framework' },
         'config': { title: 'Configuration', subtitle: '// System Settings' }
     };
-    
-    const titleData = titles[tabName] || { title: 'SHADOW NEXUS', subtitle: '// C2 Platform' };
-    
+
+    const titleData = titles[tabName] || { title: 'NEURAL NEXUS', subtitle: '// Red Team Platform' };
+
     const titleElement = document.getElementById('current-tab-title');
     const subtitleElement = document.getElementById('current-tab-subtitle');
-    
+
     if (titleElement) titleElement.textContent = titleData.title;
     if (subtitleElement) subtitleElement.textContent = titleData.subtitle;
 }
@@ -116,7 +116,7 @@ function initializeTerminal() {
     }
     
     // Add welcome message
-    addTerminalEntry('system', 'SHADOW NEXUS Terminal initialized. AI Assistant ready.');
+    addTerminalEntry('system', 'NEURAL NEXUS Terminal initialized. AI Assistant ready.');
 }
 
 function executeCommand() {
@@ -814,37 +814,44 @@ function generateAIHunterPayloadUI() {
         }
     }
     
-    // Generate payload (this would call backend in production)
+    const strategy = (document.getElementById('ai-hunter-selected-strategy') || {}).value || 'role_bypass';
+
+    // Call backend to generate
     const config = {
         target: target,
         ports: ports,
         credentials: credentials,
         prompts: prompts,
         payload_type: payloadType,
-        debug: debugMode
+        debug: debugMode,
+        strategy: strategy
     };
-    
-    const payload = generateAIHunterPayload(config);
-    
-    // Display payload
-    const payloadCode = document.getElementById('ai-hunter-payload-code');
-    if (payloadCode) {
-        payloadCode.textContent = payload;
-    }
-    
-    // Show payload preview
-    const payloadPreview = document.getElementById('ai-hunter-payload-preview');
-    if (payloadPreview) {
-        payloadPreview.style.display = 'block';
-    }
-    
-    // Show deploy button
-    const deployBtn = document.getElementById('ai-hunter-deploy-btn');
-    if (deployBtn) {
-        deployBtn.style.display = 'block';
-    }
-    
-    showNotification('AI Hunter payload generated', 'success');
+
+    fetch('/ai_hunter/generate_payload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') throw new Error(data.message || 'Generation failed');
+
+        const payloadCode = document.getElementById('ai-hunter-payload-code');
+        if (payloadCode) payloadCode.textContent = data.payload;
+
+        const payloadPreview = document.getElementById('ai-hunter-payload-preview');
+        if (payloadPreview) payloadPreview.style.display = 'block';
+
+        const deployBtn = document.getElementById('ai-hunter-deploy-btn');
+        if (deployBtn) deployBtn.style.display = 'block';
+
+        // Activate discover phase
+        const discoverPhase = document.getElementById('phase-discover');
+        if (discoverPhase) discoverPhase.classList.add('active');
+
+        showNotification('AI Hunter payload generated', 'success');
+    })
+    .catch(e => showNotification('Generation failed: ' + e.message, 'error'));
 }
 
 function deployAIHunterFromUI() {
@@ -867,8 +874,19 @@ function deployAIHunterFromUI() {
     };
     
     updateAIHunterStatus('HUNTING');
-    deployAIHunterPayload(config);
-    showNotification('AI Hunter payload deployed', 'success');
+
+    fetch('/ai_hunter/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') throw new Error(data.message || 'Deploy failed');
+        showNotification('AI Hunter deployed to agent', 'success');
+        updateAIHunterStatus('DEPLOYED');
+    })
+    .catch(e => showNotification('Deploy error: ' + e.message, 'error'));
 }
 
 // ========== MALWARE STUDIO INITIALIZATION ==========
@@ -931,39 +949,37 @@ function initializeMalwareStudio() {
 function generateScript() {
     const description = document.getElementById('studio-description').value.trim();
     const language = document.getElementById('studio-language').value;
-    
+    const badge = document.getElementById('generated-lang-badge');
+
     if (!description) {
-        showNotification('Please describe what you want the script to do', 'warning');
+        showNotification('Describe the reconnaissance objective', 'warning');
         return;
     }
-    
-    // Show loading
-    showNotification('Generating script with AI...', 'info');
-    
-    // Call backend to generate script
-    fetch('/api/generate-script', {
+
+    const genBtn = document.getElementById('generate-script-btn');
+    if (genBtn) { genBtn.disabled = true; genBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GENERATING...'; }
+
+    fetch('/studio/generate', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + getAuthToken()
-        },
-        body: JSON.stringify({
-            description: description,
-            language: language
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, language })
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.code) {
             displayGeneratedCode(data.code, language);
+            if (badge) badge.textContent = language.toUpperCase();
             showNotification('Script generated successfully', 'success');
         } else {
-            throw new Error('No code returned');
+            throw new Error(data.message || 'No code returned');
         }
     })
-    .catch(error => {
-        console.error('Error generating script:', error);
-        showNotification('Failed to generate script: ' + error.message, 'error');
+    .catch(e => {
+        console.error('Script generation error:', e);
+        showNotification('Generation failed: ' + e.message, 'error');
+    })
+    .finally(() => {
+        if (genBtn) { genBtn.disabled = false; genBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> GENERATE SCRIPT'; }
     });
 }
 
@@ -982,10 +998,33 @@ function displayGeneratedCode(code, language) {
 }
 
 function showSaveLibraryModal() {
-    const modal = document.getElementById('saveLibraryModal');
-    if (modal) {
-        modal.classList.add('show');
-    }
+    // Quick save using auto-generated name + category from the studio UI
+    const codeSection = document.getElementById('generated-code-section');
+    const code = codeSection ? codeSection.dataset.generatedCode : '';
+    const language = codeSection ? codeSection.dataset.language : 'powershell';
+    const categoryEl = document.getElementById('studio-category');
+    const category = categoryEl ? categoryEl.value : 'reconnaissance';
+    const description = (document.getElementById('studio-description') || {}).value || '';
+
+    if (!code) { showNotification('Generate a script first', 'warning'); return; }
+
+    const name = 'Recon-' + language + '-' + new Date().toISOString().slice(0,10);
+
+    fetch('/studio/library/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, code, language, category })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showNotification('Script saved to library', 'success');
+            loadScriptLibrary();
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(e => showNotification('Save failed: ' + e.message, 'error'));
 }
 
 function hideSaveLibraryModal() {
@@ -1368,71 +1407,8 @@ function obfuscateCode() {
 
 // ========== ATTACK VECTORS INITIALIZATION ==========
 function initializeAttackVectors() {
-    const agentSelect = document.getElementById('analysis-agent-select');
-    const analyzeBtn = document.getElementById('analyze-btn');
-    
-    if (agentSelect) {
-        agentSelect.addEventListener('change', function() {
-            if (analyzeBtn) {
-                analyzeBtn.disabled = !this.value;
-            }
-        });
-    }
-    
-    if (analyzeBtn) {
-        analyzeBtn.addEventListener('click', analyzeAttackVectors);
-    }
-}
-
-function analyzeAttackVectors() {
-    const agentSelect = document.getElementById('analysis-agent-select');
-    const analysisType = document.querySelector('input[name="analysisType"]:checked').value;
-    
-    if (!agentSelect || !agentSelect.value) {
-        showNotification('Please select a target agent', 'warning');
-        return;
-    }
-    
-    // Show loading
-    const loadingDiv = document.getElementById('analysis-loading');
-    const resultDiv = document.getElementById('analysis-result');
-    
-    if (loadingDiv) loadingDiv.style.display = 'block';
-    if (resultDiv) resultDiv.style.display = 'none';
-    
-    // Call backend
-    fetch('/api/analyze-vectors', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + getAuthToken()
-        },
-        body: JSON.stringify({
-            agent_id: agentSelect.value,
-            analysis_type: analysisType
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (loadingDiv) loadingDiv.style.display = 'none';
-        
-        if (data.analysis) {
-            const contentDiv = document.getElementById('analysis-content');
-            if (contentDiv) {
-                contentDiv.textContent = data.analysis;
-            }
-            if (resultDiv) resultDiv.style.display = 'block';
-            
-            showNotification('Attack vector analysis complete', 'success');
-        } else {
-            throw new Error('No analysis data returned');
-        }
-    })
-    .catch(error => {
-        console.error('Error analyzing attack vectors:', error);
-        if (loadingDiv) loadingDiv.style.display = 'none';
-        showNotification('Failed to analyze attack vectors: ' + error.message, 'error');
-    });
+    // Replaced by AutoRecon — see initializeAutoRecon() below
+    initializeAutoRecon();
 }
 
 // ========== TASK MODAL ==========
@@ -1874,4 +1850,338 @@ window.addEventListener('click', function(e) {
     }
 });
 
-console.log('SHADOW NEXUS JavaScript loaded successfully');
+console.log('NEURAL NEXUS JavaScript loaded successfully');
+
+// ========== AUTORECON ==========
+let autoReconSessionId = null;
+let autoReconPollTimer = null;
+
+function initializeAutoRecon() {
+    const agentSelect = document.getElementById('autorecon-agent-select');
+    const startBtn = document.getElementById('autorecon-start-btn');
+    const stopBtn = document.getElementById('autorecon-stop-btn');
+
+    if (agentSelect) {
+        agentSelect.addEventListener('change', function() {
+            if (startBtn) startBtn.disabled = !this.value;
+        });
+    }
+    if (startBtn) startBtn.addEventListener('click', startAutoRecon);
+    if (stopBtn) stopBtn.addEventListener('click', stopAutoRecon);
+
+    loadAutoReconSessions();
+}
+
+function startAutoRecon() {
+    const agentId = document.getElementById('autorecon-agent-select').value;
+    const goal = document.getElementById('autorecon-goal').value.trim();
+    const language = document.getElementById('autorecon-language').value;
+    const maxSteps = parseInt(document.getElementById('autorecon-max-steps').value);
+
+    if (!agentId) { showNotification('Select a target agent', 'warning'); return; }
+    if (!goal) { showNotification('Enter a reconnaissance goal', 'warning'); return; }
+
+    fetch('/autorecon/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: agentId, goal, language, max_steps: maxSteps })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            autoReconSessionId = data.session_id;
+            showNotification('AutoRecon session started', 'success');
+            document.getElementById('autorecon-start-btn').style.display = 'none';
+            document.getElementById('autorecon-stop-btn').style.display = 'block';
+            renderAutoReconChain(null);
+            pollAutoRecon();
+        } else {
+            showNotification('Failed to start: ' + data.message, 'error');
+        }
+    })
+    .catch(e => showNotification('Error: ' + e.message, 'error'));
+}
+
+function pollAutoRecon() {
+    if (!autoReconSessionId) return;
+    if (autoReconPollTimer) clearTimeout(autoReconPollTimer);
+
+    fetch('/autorecon/status/' + autoReconSessionId)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const session = data.session;
+            renderAutoReconChain(session);
+            updateAutoReconStatus(session);
+
+            if (session.status === 'running') {
+                autoReconPollTimer = setTimeout(pollAutoRecon, 4000);
+            } else {
+                document.getElementById('autorecon-start-btn').style.display = 'block';
+                document.getElementById('autorecon-stop-btn').style.display = 'none';
+                loadAutoReconSessions();
+            }
+        }
+    })
+    .catch(e => { autoReconPollTimer = setTimeout(pollAutoRecon, 5000); });
+}
+
+function stopAutoRecon() {
+    if (!autoReconSessionId) return;
+    fetch('/autorecon/stop/' + autoReconSessionId, { method: 'POST' })
+    .then(r => r.json())
+    .then(() => {
+        if (autoReconPollTimer) clearTimeout(autoReconPollTimer);
+        document.getElementById('autorecon-start-btn').style.display = 'block';
+        document.getElementById('autorecon-stop-btn').style.display = 'none';
+        showNotification('AutoRecon stopped', 'success');
+        loadAutoReconSessions();
+    });
+}
+
+function updateAutoReconStatus(session) {
+    const statusEl = document.getElementById('autorecon-session-status');
+    const progressFill = document.getElementById('autorecon-progress-fill');
+    const progressLabel = document.getElementById('autorecon-progress-label');
+    const progressBar = document.getElementById('autorecon-progress-bar');
+    const goalDisplay = document.getElementById('autorecon-goal-display');
+    const goalText = document.getElementById('autorecon-goal-text');
+
+    if (goalDisplay) goalDisplay.style.display = 'flex';
+    if (goalText) goalText.textContent = session.goal;
+    if (progressBar) progressBar.style.display = 'flex';
+
+    const pct = session.max_steps > 0 ? Math.round((session.current_step / session.max_steps) * 100) : 0;
+    if (progressFill) progressFill.style.width = pct + '%';
+    if (progressLabel) progressLabel.textContent = session.current_step + ' / ' + session.max_steps;
+
+    const statusColors = { running: 'var(--accent-cyan)', completed: 'var(--accent-green)', stopped: 'var(--accent-amber)', error: 'var(--accent-red)' };
+    if (statusEl) {
+        statusEl.textContent = session.status.toUpperCase();
+        statusEl.style.color = statusColors[session.status] || 'var(--text-muted)';
+    }
+}
+
+function renderAutoReconChain(session) {
+    const chain = document.getElementById('autorecon-chain');
+    if (!chain) return;
+
+    if (!session || session.steps.length === 0) {
+        if (session && session.status === 'running') {
+            chain.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-cyan);">
+                <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+                <p style="font-size:0.88rem;">Generating first reconnaissance script...</p>
+            </div>`;
+        }
+        return;
+    }
+
+    let html = '';
+    session.steps.forEach((step, idx) => {
+        const isLast = idx === session.steps.length - 1;
+        const dotClass = step.status === 'completed' ? 'completed' : step.status === 'pending' && session.status === 'running' ? 'running' : 'pending';
+        const badgeClass = dotClass;
+        const lineClass = step.status === 'completed' ? 'active' : '';
+        const icon = step.status === 'completed' ? '<i class="fas fa-check"></i>' : step.status === 'pending' && session.status === 'running' ? '<i class="fas fa-spinner fa-spin"></i>' : step.step_num;
+
+        html += `<div class="autorecon-step">
+            <div class="step-connector">
+                <div class="step-dot ${dotClass}">${icon}</div>
+                ${!isLast ? `<div class="step-line ${lineClass}"></div>` : ''}
+            </div>
+            <div class="step-content">
+                <div class="step-header">
+                    <span class="step-title">Step ${step.step_num}: ${step.language.toUpperCase()} Recon</span>
+                    <span class="step-status-badge ${badgeClass}">${step.status}</span>
+                </div>
+                <div class="step-reasoning">${step.reasoning || 'AI-generated recon script'}</div>
+                <button class="step-script-toggle" onclick="toggleStepScript(this,'script-${step.step_num}')">
+                    <i class="fas fa-code"></i> View Script
+                </button>
+                <div id="script-${step.step_num}" class="step-script-block" style="display:none;">${escapeHtml(step.script || '')}</div>
+                ${step.result ? `
+                <button class="step-script-toggle" style="margin-top:4px;" onclick="toggleStepScript(this,'result-${step.step_num}')">
+                    <i class="fas fa-chart-bar"></i> View Results
+                </button>
+                <div id="result-${step.step_num}" class="step-result-block" style="display:none;">${escapeHtml(step.result)}</div>` : ''}
+            </div>
+        </div>`;
+    });
+
+    if (session.status === 'running' && session.steps.length < session.max_steps) {
+        html += `<div class="autorecon-step">
+            <div class="step-connector">
+                <div class="step-dot pending"><i class="fas fa-ellipsis-h"></i></div>
+            </div>
+            <div class="step-content">
+                <div class="step-header"><span class="step-title" style="color:var(--text-muted);">Next steps pending...</span></div>
+            </div>
+        </div>`;
+    }
+
+    chain.innerHTML = html;
+}
+
+function toggleStepScript(btn, targetId) {
+    const block = document.getElementById(targetId);
+    if (!block) return;
+    const isHidden = block.style.display === 'none';
+    block.style.display = isHidden ? 'block' : 'none';
+    btn.innerHTML = isHidden
+        ? '<i class="fas fa-eye-slash"></i> Hide'
+        : (targetId.startsWith('result') ? '<i class="fas fa-chart-bar"></i> View Results' : '<i class="fas fa-code"></i> View Script');
+}
+
+function loadAutoReconSessions() {
+    fetch('/autorecon/sessions')
+    .then(r => r.json())
+    .then(data => {
+        const list = document.getElementById('autorecon-sessions-list');
+        if (!list) return;
+        if (!data.sessions || data.sessions.length === 0) {
+            list.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;text-align:center;padding:20px;">No sessions yet</div>';
+            return;
+        }
+        const statusColor = { running: 'var(--accent-cyan)', completed: 'var(--accent-green)', stopped: 'var(--accent-amber)', error: 'var(--accent-red)' };
+        list.innerHTML = data.sessions.map(s => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer;" onclick="loadAutoReconSession('${s.id}')">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-family:monospace;font-size:0.75rem;color:var(--accent-cyan);">${s.id.substring(0,8)}...</span>
+                    <span style="font-size:0.7rem;font-weight:600;color:${statusColor[s.status]||'var(--text-muted)'};">${s.status.toUpperCase()}</span>
+                </div>
+                <div style="color:var(--text-secondary);font-size:0.8rem;margin-bottom:2px;">${s.goal}</div>
+                <div style="color:var(--text-muted);font-size:0.75rem;">${s.current_step}/${s.max_steps} steps · ${s.agent_id.substring(0,8)}...</div>
+            </div>
+        `).join('');
+    })
+    .catch(() => {});
+}
+
+function loadAutoReconSession(sessionId) {
+    autoReconSessionId = sessionId;
+    fetch('/autorecon/status/' + sessionId)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const session = data.session;
+            renderAutoReconChain(session);
+            updateAutoReconStatus(session);
+            if (session.status === 'running') pollAutoRecon();
+        }
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(text || ''));
+    return div.innerHTML;
+}
+
+// ========== AI HUNTER IMPROVEMENTS ==========
+function selectInjectionStrategy(el, strategy) {
+    document.querySelectorAll('.injection-strategy-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    const hidden = document.getElementById('ai-hunter-selected-strategy');
+    if (hidden) hidden.value = strategy;
+}
+
+function renderHunterResults(data) {
+    const resultsDiv = document.getElementById('ai-hunter-results');
+    const emptyState = document.getElementById('hunter-empty-state');
+    const statusEl = document.getElementById('hunter-result-status');
+
+    if (!resultsDiv) return;
+
+    // Parse JSON result if it's a string
+    let report = data;
+    if (typeof data === 'string') {
+        try { report = JSON.parse(data); } catch(e) { report = { raw: data }; }
+    }
+
+    const endpoints = report.endpoints || [];
+    const sessions = report.sessions || [];
+    const docs = report.docs || [];
+    const llm_responses = report.llm_responses || [];
+
+    // Summary metrics
+    const summaryDiv = document.getElementById('ai-hunter-summary');
+    if (summaryDiv) {
+        summaryDiv.innerHTML = [
+            { label: 'Endpoints Found', value: endpoints.length, color: 'var(--accent-cyan)' },
+            { label: 'Auth Compromised', value: sessions.length, color: 'var(--accent-red)' },
+            { label: 'Docs Accessed', value: docs.length, color: 'var(--accent-amber)' },
+            { label: 'LLM Responses', value: llm_responses.length, color: 'var(--accent-purple)' }
+        ].map(m => `
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:${m.color};">${m.value}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">${m.label}</div>
+            </div>
+        `).join('');
+    }
+
+    // Sessions list
+    const sessionsList = document.getElementById('hunter-sessions-list');
+    if (sessionsList) {
+        sessionsList.innerHTML = sessions.length === 0
+            ? '<div style="color:var(--text-muted);font-size:0.82rem;">No sessions authenticated</div>'
+            : sessions.map(s => `
+                <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:7px;padding:10px;margin-bottom:8px;">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <span style="color:var(--accent-purple);font-weight:600;">${s.username || '?'}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Role: ${s.role || 'unknown'}</span>
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Scopes: ${(s.scopes||[]).join(', ') || 'none'}</span>
+                    </div>
+                </div>`).join('');
+    }
+
+    // LLM injection results
+    const detailedDiv = document.getElementById('ai-hunter-detailed-results');
+    if (detailedDiv) {
+        detailedDiv.innerHTML = llm_responses.length === 0
+            ? '<div style="color:var(--text-muted);font-size:0.82rem;">No LLM responses captured</div>'
+            : llm_responses.map(r => `
+                <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border-subtle);border-radius:7px;padding:12px;margin-bottom:10px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                        <span style="color:var(--accent-purple);font-size:0.8rem;font-weight:600;"><i class="fas fa-user"></i> ${r.user || '?'}</span>
+                        <span style="color:var(--accent-amber);font-size:0.72rem;">INJECTION RESULT</span>
+                    </div>
+                    <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:6px;font-style:italic;">"${r.prompt || ''}"</div>
+                    <div style="color:var(--text-primary);font-size:0.82rem;background:rgba(255,255,255,0.03);padding:8px;border-radius:5px;font-family:monospace;">${r.reply || 'No response'}</div>
+                </div>`).join('');
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+    resultsDiv.style.display = 'block';
+    if (statusEl) { statusEl.textContent = 'Results received'; statusEl.style.color = 'var(--accent-green)'; }
+
+    // Update phase bar
+    updateHunterPhases(sessions.length > 0, llm_responses.length > 0);
+}
+
+function updateHunterPhases(authDone, injectDone) {
+    const phases = ['phase-discover', 'phase-auth', 'phase-map', 'phase-inject', 'phase-extract'];
+    const done = [true, authDone, authDone, injectDone, injectDone];
+    phases.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = 'phase-node' + (done[i] ? ' done' : (i === (done.indexOf(false)) ? ' active' : ''));
+    });
+}
+
+// Hook into existing deployAIHunterPayload to render results
+const _origDeploy = typeof deployAIHunterPayload !== 'undefined' ? deployAIHunterPayload : null;
+
+// ========== RECON STUDIO: update lang badge on generate ==========
+const _origGenerateStudio = typeof generateScript !== 'undefined' ? generateScript : null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Update lang badge after generation
+    const genBtn = document.getElementById('generate-script-btn');
+    if (genBtn) {
+        genBtn.addEventListener('click', function() {
+            const lang = document.getElementById('studio-language');
+            const badge = document.getElementById('generated-lang-badge');
+            if (lang && badge) badge.textContent = lang.value.toUpperCase();
+        }, true); // capture phase so it runs before the existing handler
+    }
+}, { once: true });

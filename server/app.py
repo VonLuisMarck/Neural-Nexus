@@ -232,6 +232,7 @@ agents = {}
 tasks = {}
 results = {}
 agent_conversations = {}
+autorecon_sessions = {}
 
 # Data cleanup function
 def clean_old_data():
@@ -2693,6 +2694,221 @@ def ai_hunter_get_config():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+# ========== AUTORECON ==========
+
+def _autorecon_deploy_next_step(session_id):
+    """Generate and deploy the next script in an autorecon chain."""
+    session = autorecon_sessions.get(session_id)
+    if not session or session["status"] != "running":
+        return
+
+    if session["current_step"] >= session["max_steps"]:
+        session["status"] = "completed"
+        session["completion_reason"] = "Max steps reached"
+        return
+
+    step_num = session["current_step"] + 1
+    language = session.get("language", "powershell")
+
+    # Build context from previous steps
+    previous_context = ""
+    if session["steps"]:
+        last = session["steps"][-1]
+        result_preview = str(last.get("result", ""))[:1500]
+        previous_context = (
+            f"\n\nResults from step {last['step_num']}:\n{result_preview}"
+        )
+
+    prompt = (
+        f"You are a red team recon assistant. Goal: {session['goal']}"
+        f"{previous_context}\n\n"
+        f"Generate step {step_num} of {session['max_steps']}: "
+        f"a {language} reconnaissance script that advances toward the goal "
+        f"without repeating what was already done. "
+        f"Return ONLY the script code. "
+        f"If the goal is fully achieved, reply with exactly: RECON_COMPLETE"
+    )
+
+    try:
+        cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
+        ai_response = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, prompt)
+
+        if "RECON_COMPLETE" in ai_response:
+            session["status"] = "completed"
+            session["completion_reason"] = "AI determined goal achieved"
+            return
+
+        # Clean code by language
+        if language == "python":
+            code = clean_python_response(ai_response)
+        elif language == "powershell":
+            code = clean_powershell_response(ai_response)
+        else:
+            import re as _re
+            m = _re.search(r"```(?:bash|sh)?\s*(.*?)```", ai_response, _re.DOTALL | _re.IGNORECASE)
+            code = m.group(1).strip() if m else ai_response.strip()
+            if not code.startswith("#!/bin/bash"):
+                code = "#!/bin/bash\n" + code
+
+        # Extract AI reasoning (first line or sentence before the code)
+        reasoning_lines = [l for l in ai_response.split("\n") if l.strip() and not l.strip().startswith(("#", "$", "import", "Get-", "Write-", "#!/"))]
+        reasoning = reasoning_lines[0][:200] if reasoning_lines else f"Step {step_num} recon script"
+
+        task_id = str(uuid.uuid4())
+        lang_tag = {"python": "#python", "powershell": "#ps", "bash": "#bash"}.get(language, "#ps")
+        tasks[task_id] = {
+            "id": task_id,
+            "agent_id": session["agent_id"],
+            "task_type": "autorecon",
+            "code": f"{lang_tag}\n{code}",
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+            "autorecon_session_id": session_id,
+            "step_num": step_num,
+        }
+
+        step = {
+            "step_num": step_num,
+            "script": code,
+            "language": language,
+            "reasoning": reasoning,
+            "status": "pending",
+            "task_id": task_id,
+            "created_at": datetime.now().isoformat(),
+            "result": None,
+        }
+        session["steps"].append(step)
+        session["current_step"] = step_num
+        session["current_task_id"] = task_id
+        logger.info(f"AutoRecon session {session_id}: deployed step {step_num} (task {task_id})")
+
+    except Exception as e:
+        logger.error(f"AutoRecon step generation error: {e}")
+        session["status"] = "error"
+        session["error"] = str(e)
+
+
+@app.route("/autorecon/start", methods=["POST"])
+def autorecon_start():
+    """Start an autonomous reconnaissance chain for a given agent."""
+    try:
+        data = request.json
+        agent_id = data.get("agent_id")
+        goal = data.get("goal", "Perform comprehensive system reconnaissance")
+        language = data.get("language", "powershell")
+        max_steps = int(data.get("max_steps", 5))
+
+        if not agent_id:
+            return jsonify({"status": "error", "message": "Missing agent_id"}), 400
+
+        session_id = str(uuid.uuid4())
+        autorecon_sessions[session_id] = {
+            "id": session_id,
+            "agent_id": agent_id,
+            "goal": goal,
+            "language": language,
+            "max_steps": max_steps,
+            "current_step": 0,
+            "status": "running",
+            "steps": [],
+            "created_at": datetime.now().isoformat(),
+            "current_task_id": None,
+            "completion_reason": None,
+            "error": None,
+        }
+
+        _autorecon_deploy_next_step(session_id)
+
+        return jsonify({"status": "success", "session_id": session_id})
+
+    except Exception as e:
+        logger.error(f"AutoRecon start error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/autorecon/status/<session_id>", methods=["GET"])
+def autorecon_status(session_id):
+    """Poll the status of an autorecon session; advance chain when a step completes."""
+    try:
+        session = autorecon_sessions.get(session_id)
+        if not session:
+            return jsonify({"status": "error", "message": "Session not found"}), 404
+
+        # Advance chain if current task completed
+        if session["status"] == "running" and session["current_task_id"]:
+            current_task = tasks.get(session["current_task_id"])
+            if current_task and current_task.get("status") == "completed":
+                # Find associated result
+                for result_data in results.values():
+                    if result_data.get("task_id") == session["current_task_id"]:
+                        current_step_obj = next(
+                            (s for s in session["steps"] if s["task_id"] == session["current_task_id"]),
+                            None,
+                        )
+                        if current_step_obj:
+                            current_step_obj["result"] = str(result_data.get("data", ""))[:2000]
+                            current_step_obj["status"] = "completed"
+                        break
+
+                session["current_task_id"] = None
+                _autorecon_deploy_next_step(session_id)
+
+        return jsonify({
+            "status": "success",
+            "session": {
+                "id": session["id"],
+                "status": session["status"],
+                "current_step": session["current_step"],
+                "max_steps": session["max_steps"],
+                "goal": session["goal"],
+                "language": session["language"],
+                "created_at": session["created_at"],
+                "completion_reason": session.get("completion_reason"),
+                "error": session.get("error"),
+                "steps": session["steps"],
+            },
+        })
+
+    except Exception as e:
+        logger.error(f"AutoRecon status error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/autorecon/stop/<session_id>", methods=["POST"])
+def autorecon_stop(session_id):
+    """Stop a running autorecon session."""
+    try:
+        session = autorecon_sessions.get(session_id)
+        if not session:
+            return jsonify({"status": "error", "message": "Session not found"}), 404
+        session["status"] = "stopped"
+        return jsonify({"status": "success", "message": "Session stopped"})
+    except Exception as e:
+        logger.error(f"AutoRecon stop error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/autorecon/sessions", methods=["GET"])
+def autorecon_list_sessions():
+    """List all autorecon sessions (summary)."""
+    try:
+        summaries = []
+        for s in autorecon_sessions.values():
+            summaries.append({
+                "id": s["id"],
+                "agent_id": s["agent_id"],
+                "goal": s["goal"][:80],
+                "status": s["status"],
+                "current_step": s["current_step"],
+                "max_steps": s["max_steps"],
+                "created_at": s["created_at"],
+            })
+        summaries.sort(key=lambda x: x["created_at"], reverse=True)
+        return jsonify({"status": "success", "sessions": summaries})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for monitoring"""
@@ -2708,7 +2924,8 @@ def health_check():
             "ai_always_enabled": ["chat", "obfuscator", "analysis", "test_prompts"],
             "fallback_payloads_loaded": len(fallback_payloads),
             "available_payloads": list(fallback_payloads.keys()),
-            "malware_library_scripts": len(malware_library.get("scripts", []))
+            "malware_library_scripts": len(malware_library.get("scripts", [])),
+            "autorecon_sessions": len(autorecon_sessions)
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
