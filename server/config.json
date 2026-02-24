@@ -1,0 +1,10 @@
+{
+  "crowdstrike": {
+    "client_id": "2dab0187d168421da3fec3c09c619477",
+    "client_secret": "bGks2c4Y8OmRJ0UzxElPdB5oaM1ZSjTqI96Ar7X3"
+  },
+  "execution": {
+    "default_timeout": 300,
+    "default_poll_interval": 5
+  }
+}

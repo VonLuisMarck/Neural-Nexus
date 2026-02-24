@@ -1,0 +1,468 @@
+{
+  "victim_companies": {
+    "finance": [
+      {
+        "name": "GlobalBank Corp",
+        "employees": "45,000",
+        "revenue": "$12.5B",
+        "description": "International banking institution with operations in 50+ countries"
+      },
+      {
+        "name": "SecureInvest Holdings",
+        "employees": "8,500",
+        "revenue": "$3.2B",
+        "description": "Investment management firm specializing in hedge funds and private equity"
+      },
+      {
+        "name": "MetroCredit Union",
+        "employees": "2,300",
+        "revenue": "$890M",
+        "description": "Regional credit union serving 500,000+ members across 12 states"
+      },
+      {
+        "name": "PrimeCapital Partners",
+        "employees": "1,200",
+        "revenue": "$1.8B",
+        "description": "Venture capital and private equity investment firm"
+      },
+      {
+        "name": "TrustFund Financial",
+        "employees": "15,000",
+        "revenue": "$6.7B",
+        "description": "Wealth management and trust services for high-net-worth individuals"
+      }
+    ],
+    "healthcare": [
+      {
+        "name": "MediCare Systems",
+        "employees": "32,000",
+        "revenue": "$8.9B",
+        "description": "Healthcare provider network with 150+ hospitals and clinics"
+      },
+      {
+        "name": "PharmaTech Industries",
+        "employees": "12,500",
+        "revenue": "$4.3B",
+        "description": "Pharmaceutical research and manufacturing company"
+      },
+      {
+        "name": "HealthFirst Insurance",
+        "employees": "9,800",
+        "revenue": "$5.6B",
+        "description": "Health insurance provider covering 8 million members"
+      },
+      {
+        "name": "BioResearch Labs",
+        "employees": "3,400",
+        "revenue": "$1.2B",
+        "description": "Biotechnology research facility specializing in gene therapy"
+      },
+      {
+        "name": "CarePoint Medical Group",
+        "employees": "18,000",
+        "revenue": "$3.8B",
+        "description": "Multi-specialty medical practice with 200+ locations"
+      }
+    ],
+    "technology": [
+      {
+        "name": "CloudTech Solutions",
+        "employees": "25,000",
+        "revenue": "$15.2B",
+        "description": "Cloud infrastructure and SaaS platform provider"
+      },
+      {
+        "name": "DataStream Analytics",
+        "employees": "5,600",
+        "revenue": "$2.1B",
+        "description": "Big data analytics and AI/ML solutions company"
+      },
+      {
+        "name": "CyberShield Security",
+        "employees": "3,200",
+        "revenue": "$980M",
+        "description": "Cybersecurity solutions and managed security services provider"
+      },
+      {
+        "name": "DevOps Automation Inc",
+        "employees": "1,800",
+        "revenue": "$650M",
+        "description": "DevOps tools and CI/CD pipeline automation platform"
+      },
+      {
+        "name": "QuantumSoft Systems",
+        "employees": "8,900",
+        "revenue": "$4.5B",
+        "description": "Enterprise software solutions for supply chain management"
+      }
+    ],
+    "retail": [
+      {
+        "name": "MegaMart Retail",
+        "employees": "120,000",
+        "revenue": "$28.5B",
+        "description": "National retail chain with 800+ stores across the country"
+      },
+      {
+        "name": "FashionHub International",
+        "employees": "35,000",
+        "revenue": "$9.2B",
+        "description": "Global fashion retailer with e-commerce and brick-and-mortar presence"
+      },
+      {
+        "name": "HomeGoods Superstore",
+        "employees": "45,000",
+        "revenue": "$11.8B",
+        "description": "Home improvement and furniture retail chain"
+      },
+      {
+        "name": "QuickShop Convenience",
+        "employees": "28,000",
+        "revenue": "$5.4B",
+        "description": "Convenience store chain with 2,000+ locations"
+      },
+      {
+        "name": "LuxuryBrands Outlet",
+        "employees": "8,500",
+        "revenue": "$3.6B",
+        "description": "Premium luxury goods retailer and online marketplace"
+      }
+    ],
+    "energy": [
+      {
+        "name": "PowerGrid Energy",
+        "employees": "18,000",
+        "revenue": "$22.3B",
+        "description": "Electric utility company serving 5 million customers"
+      },
+      {
+        "name": "OilTech Petroleum",
+        "employees": "42,000",
+        "revenue": "$45.7B",
+        "description": "Oil and gas exploration, production, and refining company"
+      },
+      {
+        "name": "GreenEnergy Solutions",
+        "employees": "6,500",
+        "revenue": "$2.8B",
+        "description": "Renewable energy provider specializing in solar and wind power"
+      },
+      {
+        "name": "NuclearPower Corp",
+        "employees": "12,000",
+        "revenue": "$8.9B",
+        "description": "Nuclear power plant operator with 15 facilities nationwide"
+      },
+      {
+        "name": "NaturalGas Distribution",
+        "employees": "9,200",
+        "revenue": "$6.4B",
+        "description": "Natural gas distribution and pipeline infrastructure company"
+      }
+    ],
+    "manufacturing": [
+      {
+        "name": "AutoTech Industries",
+        "employees": "65,000",
+        "revenue": "$32.1B",
+        "description": "Automotive parts manufacturer and supplier to major car brands"
+      },
+      {
+        "name": "AeroSpace Dynamics",
+        "employees": "28,000",
+        "revenue": "$18.5B",
+        "description": "Aerospace and defense contractor manufacturing aircraft components"
+      },
+      {
+        "name": "ChemCore Manufacturing",
+        "employees": "15,000",
+        "revenue": "$7.8B",
+        "description": "Chemical manufacturing and industrial materials producer"
+      },
+      {
+        "name": "TechComponents Ltd",
+        "employees": "22,000",
+        "revenue": "$9.3B",
+        "description": "Electronics and semiconductor component manufacturer"
+      },
+      {
+        "name": "SteelWorks International",
+        "employees": "38,000",
+        "revenue": "$14.6B",
+        "description": "Steel production and metal fabrication company"
+      }
+    ],
+    "telecommunications": [
+      {
+        "name": "GlobalComm Networks",
+        "employees": "85,000",
+        "revenue": "$42.8B",
+        "description": "Telecommunications provider with nationwide 5G network"
+      },
+      {
+        "name": "DataLink Communications",
+        "employees": "12,000",
+        "revenue": "$5.9B",
+        "description": "Internet service provider and data center operator"
+      },
+      {
+        "name": "SatelliteCom Systems",
+        "employees": "4,500",
+        "revenue": "$2.3B",
+        "description": "Satellite communications and broadcasting services"
+      },
+      {
+        "name": "FiberNet Solutions",
+        "employees": "8,700",
+        "revenue": "$3.8B",
+        "description": "Fiber optic network infrastructure and broadband services"
+      },
+      {
+        "name": "WirelessTech Mobile",
+        "employees": "32,000",
+        "revenue": "$16.4B",
+        "description": "Mobile network operator and wireless services provider"
+      }
+    ],
+    "education": [
+      {
+        "name": "National University System",
+        "employees": "45,000",
+        "revenue": "$4.2B",
+        "description": "Multi-campus university system with 200,000+ students"
+      },
+      {
+        "name": "EduTech Learning Platform",
+        "employees": "3,800",
+        "revenue": "$890M",
+        "description": "Online education platform and learning management system"
+      },
+      {
+        "name": "Research Institute Alliance",
+        "employees": "8,500",
+        "revenue": "$2.1B",
+        "description": "Academic research consortium with government contracts"
+      },
+      {
+        "name": "SchoolDistrict Management",
+        "employees": "28,000",
+        "revenue": "$1.8B",
+        "description": "K-12 school district serving 150,000 students"
+      },
+      {
+        "name": "Global Education Services",
+        "employees": "12,000",
+        "revenue": "$1.5B",
+        "description": "International education services and student exchange programs"
+      }
+    ],
+    "government": [
+      {
+        "name": "Federal Agency Services",
+        "employees": "55,000",
+        "revenue": "$8.5B",
+        "description": "Federal government agency managing critical infrastructure"
+      },
+      {
+        "name": "State Department Systems",
+        "employees": "32,000",
+        "revenue": "$5.2B",
+        "description": "State-level government IT and administrative services"
+      },
+      {
+        "name": "Municipal Services Corp",
+        "employees": "18,000",
+        "revenue": "$2.9B",
+        "description": "City government services including utilities and public works"
+      },
+      {
+        "name": "Defense Logistics Agency",
+        "employees": "42,000",
+        "revenue": "$12.3B",
+        "description": "Military logistics and supply chain management"
+      },
+      {
+        "name": "Public Health Department",
+        "employees": "25,000",
+        "revenue": "$4.1B",
+        "description": "State public health services and disease control"
+      }
+    ],
+    "transportation": [
+      {
+        "name": "SkyWays Airlines",
+        "employees": "48,000",
+        "revenue": "$18.7B",
+        "description": "Major international airline with 500+ aircraft fleet"
+      },
+      {
+        "name": "RailTrans Systems",
+        "employees": "22,000",
+        "revenue": "$6.8B",
+        "description": "Freight and passenger rail transportation network"
+      },
+      {
+        "name": "MetroTransit Authority",
+        "employees": "15,000",
+        "revenue": "$3.2B",
+        "description": "Urban public transportation system with bus and subway services"
+      },
+      {
+        "name": "GlobalShipping Logistics",
+        "employees": "35,000",
+        "revenue": "$14.5B",
+        "description": "International shipping and logistics company"
+      },
+      {
+        "name": "PortOps Management",
+        "employees": "8,500",
+        "revenue": "$2.4B",
+        "description": "Seaport operations and cargo handling services"
+      }
+    ],
+    "media": [
+      {
+        "name": "StreamMedia Networks",
+        "employees": "12,000",
+        "revenue": "$7.8B",
+        "description": "Streaming video platform and content production studio"
+      },
+      {
+        "name": "NewsGlobal Corporation",
+        "employees": "18,000",
+        "revenue": "$5.4B",
+        "description": "International news network and digital media company"
+      },
+      {
+        "name": "SocialConnect Platform",
+        "employees": "8,500",
+        "revenue": "$9.2B",
+        "description": "Social media platform with 500M+ active users"
+      },
+      {
+        "name": "GameStream Entertainment",
+        "employees": "5,200",
+        "revenue": "$3.1B",
+        "description": "Gaming platform and esports broadcasting network"
+      },
+      {
+        "name": "PublishPro Media",
+        "employees": "6,800",
+        "revenue": "$2.3B",
+        "description": "Digital publishing and content distribution platform"
+      }
+    ]
+  },
+  "sector_data_types": {
+    "finance": [
+      "Customer Financial Records",
+      "Transaction History",
+      "Credit Card Data",
+      "Investment Portfolios",
+      "Banking Credentials",
+      "Wire Transfer Information",
+      "Account Numbers",
+      "Social Security Numbers"
+    ],
+    "healthcare": [
+      "Patient Medical Records",
+      "Electronic Health Records (EHR)",
+      "Insurance Information",
+      "Prescription Data",
+      "Lab Results",
+      "Diagnostic Images",
+      "Treatment Plans",
+      "HIPAA Protected Information"
+    ],
+    "technology": [
+      "Source Code Repositories",
+      "API Keys and Secrets",
+      "Customer Database",
+      "Intellectual Property",
+      "Product Roadmaps",
+      "Cloud Infrastructure Credentials",
+      "Employee Access Tokens",
+      "Proprietary Algorithms"
+    ],
+    "retail": [
+      "Customer Purchase History",
+      "Payment Card Information",
+      "Loyalty Program Data",
+      "Inventory Systems",
+      "Supply Chain Data",
+      "Employee Records",
+      "Point-of-Sale Systems",
+      "E-commerce Platform Data"
+    ],
+    "energy": [
+      "SCADA System Access",
+      "Critical Infrastructure Data",
+      "Power Grid Schematics",
+      "Operational Technology (OT) Systems",
+      "Employee Credentials",
+      "Facility Security Plans",
+      "Maintenance Schedules",
+      "Supplier Contracts"
+    ],
+    "manufacturing": [
+      "Industrial Control Systems (ICS)",
+      "Production Line Data",
+      "Supply Chain Information",
+      "Quality Control Records",
+      "Engineering Designs",
+      "Manufacturing Processes",
+      "Inventory Management",
+      "Supplier Networks"
+    ],
+    "telecommunications": [
+      "Network Infrastructure Data",
+      "Customer Call Records",
+      "Billing Information",
+      "Network Topology Maps",
+      "5G Infrastructure Details",
+      "Subscriber Data",
+      "Routing Configurations",
+      "Backbone Network Access"
+    ],
+    "education": [
+      "Student Records",
+      "Financial Aid Information",
+      "Research Data",
+      "Faculty Credentials",
+      "Enrollment Systems",
+      "Grade Records",
+      "Alumni Database",
+      "Grant Information"
+    ],
+    "government": [
+      "Classified Information",
+      "Citizen Records",
+      "Infrastructure Plans",
+      "Security Clearance Data",
+      "Law Enforcement Records",
+      "Tax Information",
+      "Voting Systems",
+      "Emergency Response Plans"
+    ],
+    "transportation": [
+      "Passenger Manifests",
+      "Flight Operations Data",
+      "Logistics Systems",
+      "GPS Tracking Data",
+      "Maintenance Records",
+      "Cargo Information",
+      "Crew Schedules",
+      "Safety Systems"
+    ],
+    "media": [
+      "User Account Data",
+      "Content Libraries",
+      "Subscriber Information",
+      "Advertising Data",
+      "Analytics Platforms",
+      "Content Management Systems",
+      "Streaming Infrastructure",
+      "User Behavior Data"
+    ]
+  }
+}
