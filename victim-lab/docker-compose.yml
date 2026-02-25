@@ -1,21 +1,20 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Neural-Nexus · Victim Lab
-#  Simulates a corporate AI assistant application (RAG + RBAC) that an attacker
-#  has already gained code-execution access to.
+#  Neural-Nexus · Victim Lab  (standalone mode)
+#
+#  Preferred: use the root docker-compose.yml which puts all services on
+#  nn-demo-net with fixed IPs (172.30.0.x) so Falcon can detect them as
+#  separate hosts.
+#
+#  This standalone compose is useful for developing / testing the victim-lab
+#  in isolation without the full C2 stack.
 #
 #  Usage:
-#    docker compose up --build
+#    cd victim-lab && docker compose up --build
 #
-#  Endpoints exposed to the host:
-#    http://localhost:8080   – AI Security Lab web UI + API
-#    http://localhost:11434  – Ollama (LLM inference)
-#
-#  The /skill/download endpoint serves neural_nexus_skill.py, which
-#  connects back to the Neural-Nexus C2 server.
-#  Set NN_C2 to point to YOUR C2 server before building:
-#    NN_C2=http://192.168.1.100:5001
+#  To run on the shared nn-demo-net (if the root compose already created it):
+#    docker compose --env-file ../.env up --build
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -29,8 +28,8 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=5m
-    # Pull the model on first start
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3 && wait"]
+    networks:
+      - victim-net
 
   lab-backend:
     build: ./backend
@@ -43,12 +42,18 @@ services:
       - JWT_SECRET_KEY=change-this-in-production
       - PORT=8080
     volumes:
-      - ./frontend:/app/../frontend:ro
+      - ./frontend:/frontend:ro
       - ./skill:/skill:ro
     ports:
       - "8080:8080"
     depends_on:
       - ollama
+    networks:
+      - victim-net
+
+networks:
+  victim-net:
+    driver: bridge
 
 volumes:
   ollama_data:
