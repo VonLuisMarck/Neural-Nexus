@@ -2874,6 +2874,210 @@ def autorecon_status(session_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/autorecon/analyze_step", methods=["POST"])
+def autorecon_analyze_step():
+    """
+    Analyze the results of a completed AutoRecon step with AI.
+    Identifies actionable intelligence (credentials, hosts, tokens, privesc paths)
+    and, when confident, automatically queues the appropriate follow-up task.
+    """
+    try:
+        data = request.json
+        session_id = data.get("session_id")
+        step_num = int(data.get("step_num", 0))
+        auto_execute = data.get("auto_execute", True)
+
+        session = autorecon_sessions.get(session_id)
+        if not session:
+            return jsonify({"status": "error", "message": "Session not found"}), 404
+
+        step = next((s for s in session["steps"] if s["step_num"] == step_num), None)
+        if not step:
+            return jsonify({"status": "error", "message": "Step not found"}), 404
+        if not step.get("result"):
+            return jsonify({"status": "error", "message": "Step has no results yet"}), 400
+
+        analysis_prompt = f"""You are an expert red team analyst reviewing reconnaissance output.
+
+Session goal: {session['goal']}
+
+Recon results from step {step_num}:
+{str(step['result'])[:3000]}
+
+Your task:
+1. Identify every piece of actionable intelligence in these results:
+   - Credentials: passwords, NTLM hashes, Kerberos tickets, API keys, SSH keys, tokens
+   - Network targets: IPs, hostnames, open ports, SMB shares, RDP hosts, SSH hosts
+   - Cloud artifacts: AWS access keys, Azure tokens, GCP service account keys, metadata endpoints
+   - Privilege escalation: writable service paths, unquoted service paths, AlwaysInstallElevated, weak ACLs
+   - Lateral movement: discovered hosts reachable via SSH/WMI/PSExec
+
+2. For each finding suggest ONE specific follow-up action from this exact list:
+   - "lsass"  → dump LSASS memory to extract more credentials (use when: NTLM hash, SAM db, credential store found)
+   - "lateral" → SSH/WMI lateral movement to a discovered host (use when: remote host IPs + any credentials found)
+   - "cloud"  → enumerate cloud environment (use when: AWS/Azure/GCP keys, metadata URL, cloud token found)
+   - "dll"    → DLL injection / persistence (use when: writable system path, service hijack opportunity, privesc path found)
+   - "recon"  → extended recon on a newly discovered subnet or host (use when: new IPs / subnets discovered)
+
+Rules:
+- Only suggest actions directly justified by the findings.
+- Set auto_execute=true ONLY when the finding is clear and unambiguous (e.g., actual hash value extracted, actual IP + credential pair found).
+- Set auto_execute=false when the suggestion is speculative.
+- Do NOT invent data that is not in the output.
+
+Respond with ONLY valid JSON in this exact schema (no markdown, no explanation):
+{{
+  "summary": "<one-sentence summary of key findings>",
+  "findings": [
+    {{"type": "credential|network|cloud|privesc|other", "description": "<what was found>", "value": "<the actual value/IP/path>", "severity": "critical|high|medium|low"}}
+  ],
+  "suggested_actions": [
+    {{"action_type": "lsass|lateral|cloud|dll|recon", "reason": "<why this action is warranted>", "auto_execute": true|false, "priority": 1}}
+  ]
+}}"""
+
+        if not CROWDSTRIKE_WORKFLOW_ID or not crowdstrike_config:
+            # Fallback: simple keyword-based analysis
+            result_text = str(step["result"]).lower()
+            findings = []
+            suggested_actions = []
+
+            if any(k in result_text for k in ["password", "hash", "ntlm", "sam "]):
+                findings.append({"type": "credential", "description": "Potential credentials detected in output", "value": "see raw results", "severity": "high"})
+                suggested_actions.append({"action_type": "lsass", "reason": "Credential indicators found — dump LSASS for full credential set", "auto_execute": False, "priority": 1})
+
+            if any(k in result_text for k in ["192.168.", "10.0.", "172.16.", "ssh", "smb", "rdp"]):
+                findings.append({"type": "network", "description": "Remote hosts or network services discovered", "value": "see raw results", "severity": "medium"})
+                suggested_actions.append({"action_type": "lateral", "reason": "Network hosts detected — attempt lateral movement", "auto_execute": False, "priority": 2})
+
+            if any(k in result_text for k in ["aws", "azure", "gcp", "s3", "access_key", "metadata"]):
+                findings.append({"type": "cloud", "description": "Cloud artifacts detected", "value": "see raw results", "severity": "high"})
+                suggested_actions.append({"action_type": "cloud", "reason": "Cloud credentials or metadata endpoint found", "auto_execute": False, "priority": 1})
+
+            analysis = {
+                "summary": f"Keyword-based analysis of step {step_num} results (AI not configured)",
+                "findings": findings,
+                "suggested_actions": suggested_actions
+            }
+        else:
+            try:
+                cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
+                ai_response = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, analysis_prompt)
+
+                # Extract JSON from response
+                json_match = re.search(r'\{[\s\S]*\}', ai_response)
+                if json_match:
+                    analysis = json.loads(json_match.group())
+                else:
+                    analysis = {
+                        "summary": ai_response[:300],
+                        "findings": [],
+                        "suggested_actions": []
+                    }
+            except json.JSONDecodeError:
+                analysis = {
+                    "summary": "AI response could not be parsed as JSON",
+                    "findings": [],
+                    "suggested_actions": []
+                }
+            except Exception as e:
+                logger.error(f"AutoRecon step analysis AI error: {e}")
+                analysis = {"summary": f"Analysis error: {str(e)}", "findings": [], "suggested_actions": []}
+
+        # Auto-execute high-confidence suggested actions
+        executed_tasks = []
+        ALLOWED_AUTO_TYPES = {"lsass", "lateral", "cloud", "dll", "recon"}
+
+        if auto_execute:
+            # Sort by priority
+            actions = sorted(analysis.get("suggested_actions", []), key=lambda a: a.get("priority", 99))
+            for action in actions:
+                if not action.get("auto_execute"):
+                    continue
+                action_type = action.get("action_type", "")
+                if action_type not in ALLOWED_AUTO_TYPES:
+                    continue
+
+                try:
+                    code = generate_code(action_type, {"triggered_by": "autorecon", "step": step_num})
+                    task_id = str(uuid.uuid4())
+                    tasks[task_id] = {
+                        "id": task_id,
+                        "agent_id": session["agent_id"],
+                        "task_type": action_type,
+                        "code": code,
+                        "status": "pending",
+                        "created_at": datetime.now().isoformat(),
+                        "autorecon_triggered": True,
+                        "autorecon_session_id": session_id,
+                        "trigger_step": step_num,
+                        "trigger_reason": action.get("reason", ""),
+                    }
+                    executed_tasks.append({
+                        "task_id": task_id,
+                        "task_type": action_type,
+                        "reason": action.get("reason", ""),
+                    })
+                    logger.info(
+                        f"AutoRecon auto-executed '{action_type}' task {task_id} "
+                        f"(session {session_id}, step {step_num})"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to auto-execute {action_type}: {e}")
+
+        # Persist analysis back into the step so the status endpoint returns it
+        step["ai_analysis"] = analysis
+        step["auto_executed_tasks"] = executed_tasks
+
+        return jsonify({
+            "status": "success",
+            "analysis": analysis,
+            "auto_executed": executed_tasks,
+        })
+
+    except Exception as e:
+        logger.error(f"AutoRecon analyze_step error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/autorecon/execute_suggestion", methods=["POST"])
+def autorecon_execute_suggestion():
+    """Manually execute a suggested action from an AutoRecon step analysis."""
+    try:
+        data = request.json
+        session_id = data.get("session_id")
+        action_type = data.get("action_type")
+        reason = data.get("reason", "Manual execution from AutoRecon suggestion")
+
+        if action_type not in {"lsass", "lateral", "cloud", "dll", "recon", "custom"}:
+            return jsonify({"status": "error", "message": "Invalid action type"}), 400
+
+        session = autorecon_sessions.get(session_id)
+        if not session:
+            return jsonify({"status": "error", "message": "Session not found"}), 404
+
+        code = generate_code(action_type, {"triggered_by": "autorecon_manual"})
+        task_id = str(uuid.uuid4())
+        tasks[task_id] = {
+            "id": task_id,
+            "agent_id": session["agent_id"],
+            "task_type": action_type,
+            "code": code,
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+            "autorecon_triggered": True,
+            "autorecon_session_id": session_id,
+            "trigger_reason": reason,
+        }
+
+        logger.info(f"AutoRecon manual suggestion executed: {action_type} task {task_id}")
+        return jsonify({"status": "success", "task_id": task_id, "task_type": action_type})
+
+    except Exception as e:
+        logger.error(f"AutoRecon execute_suggestion error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/autorecon/stop/<session_id>", methods=["POST"])
 def autorecon_stop(session_id):
     """Stop a running autorecon session."""

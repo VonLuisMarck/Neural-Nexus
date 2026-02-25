@@ -1962,6 +1962,74 @@ function updateAutoReconStatus(session) {
     }
 }
 
+// ---- helpers for action type display ----
+const ACTION_META = {
+    lsass:   { icon: 'fas fa-key',            label: 'Dump LSASS',        cls: 'lsass'   },
+    lateral: { icon: 'fas fa-network-wired',  label: 'Lateral Movement',  cls: 'lateral' },
+    cloud:   { icon: 'fas fa-cloud',          label: 'Cloud Recon',       cls: 'cloud'   },
+    dll:     { icon: 'fas fa-puzzle-piece',   label: 'DLL / Persistence', cls: 'dll'     },
+    recon:   { icon: 'fas fa-satellite-dish', label: 'Extended Recon',    cls: 'recon'   },
+};
+
+function renderAnalysisPanel(step, sessionId) {
+    const a = step.ai_analysis;
+    if (!a) return '';
+
+    const findings = (a.findings || []).map(f => `
+        <div class="finding-item">
+            <span class="finding-severity ${f.severity || 'low'}">${f.severity || 'low'}</span>
+            <div class="finding-body">
+                <div class="finding-desc">
+                    ${escapeHtml(f.description || '')}
+                    <span class="finding-type-badge">${f.type || 'other'}</span>
+                </div>
+                ${f.value && f.value !== 'see raw results'
+                    ? `<div class="finding-value">${escapeHtml(f.value)}</div>` : ''}
+            </div>
+        </div>`).join('');
+
+    const executed = step.auto_executed_tasks || [];
+    const executedIds = new Set(executed.map(e => e.task_type));
+
+    const actions = (a.suggested_actions || []).map(act => {
+        const meta = ACTION_META[act.action_type] || { icon: 'fas fa-bolt', label: act.action_type, cls: 'recon' };
+        const wasExecuted = executedIds.has(act.action_type);
+        const badge = wasExecuted
+            ? `<span class="action-executed-badge"><i class="fas fa-check"></i> QUEUED</span>`
+            : `<button class="action-execute-btn"
+                onclick="manualExecuteSuggestion('${sessionId}','${act.action_type}','${escapeHtml(act.reason || '').replace(/'/g,"\\'")}',this)">
+                 <i class="fas fa-rocket"></i> EXECUTE
+               </button>`;
+        return `
+        <div class="suggested-action-card ${wasExecuted ? 'auto-executed' : ''}">
+            <div class="action-type-icon ${meta.cls}"><i class="${meta.icon}"></i></div>
+            <div class="action-body">
+                <div class="action-name">${meta.label}</div>
+                <div class="action-reason">${escapeHtml(act.reason || '')}</div>
+            </div>
+            ${badge}
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="step-analysis-panel" id="analysis-panel-${step.step_num}">
+        <div class="step-analysis-header">
+            <span><i class="fas fa-brain"></i> AI Intelligence Analysis</span>
+            <button class="step-script-toggle" onclick="toggleStepScript(this,'analysis-body-${step.step_num}')">
+                <i class="fas fa-eye-slash"></i> Hide
+            </button>
+        </div>
+        <div id="analysis-body-${step.step_num}">
+            <div class="step-analysis-summary">${escapeHtml(a.summary || 'No summary available')}</div>
+            ${findings ? `<div class="findings-list">${findings}</div>` : ''}
+            ${actions ? `<div class="suggested-actions-list">
+                <div class="suggested-actions-label"><i class="fas fa-bolt"></i> Suggested Actions</div>
+                ${actions}
+            </div>` : ''}
+        </div>
+    </div>`;
+}
+
 function renderAutoReconChain(session) {
     const chain = document.getElementById('autorecon-chain');
     if (!chain) return;
@@ -1976,15 +2044,30 @@ function renderAutoReconChain(session) {
         return;
     }
 
+    const sid = session.id;
     let html = '';
+
     session.steps.forEach((step, idx) => {
         const isLast = idx === session.steps.length - 1;
-        const dotClass = step.status === 'completed' ? 'completed' : step.status === 'pending' && session.status === 'running' ? 'running' : 'pending';
-        const badgeClass = dotClass;
+        const isRunning = step.status === 'pending' && session.status === 'running';
+        const dotClass  = step.status === 'completed' ? 'completed' : isRunning ? 'running' : 'pending';
         const lineClass = step.status === 'completed' ? 'active' : '';
-        const icon = step.status === 'completed' ? '<i class="fas fa-check"></i>' : step.status === 'pending' && session.status === 'running' ? '<i class="fas fa-spinner fa-spin"></i>' : step.step_num;
+        const icon = step.status === 'completed'
+            ? '<i class="fas fa-check"></i>'
+            : isRunning ? '<i class="fas fa-spinner fa-spin"></i>'
+            : step.step_num;
 
-        html += `<div class="autorecon-step">
+        // "Analyze with AI" button — only if completed and no analysis yet
+        const analyzeBtn = (step.status === 'completed' && !step.ai_analysis)
+            ? `<button class="analyze-step-btn" id="analyze-btn-${step.step_num}"
+                onclick="analyzeStep('${sid}',${step.step_num},this)">
+                <i class="fas fa-brain"></i> ANALYZE WITH AI
+               </button>` : '';
+
+        // AI analysis panel (if already done)
+        const analysisHtml = step.ai_analysis ? renderAnalysisPanel(step, sid) : '';
+
+        html += `<div class="autorecon-step" id="step-container-${step.step_num}">
             <div class="step-connector">
                 <div class="step-dot ${dotClass}">${icon}</div>
                 ${!isLast ? `<div class="step-line ${lineClass}"></div>` : ''}
@@ -1992,29 +2075,33 @@ function renderAutoReconChain(session) {
             <div class="step-content">
                 <div class="step-header">
                     <span class="step-title">Step ${step.step_num}: ${step.language.toUpperCase()} Recon</span>
-                    <span class="step-status-badge ${badgeClass}">${step.status}</span>
+                    <span class="step-status-badge ${dotClass}">${step.status}</span>
                 </div>
-                <div class="step-reasoning">${step.reasoning || 'AI-generated recon script'}</div>
-                <button class="step-script-toggle" onclick="toggleStepScript(this,'script-${step.step_num}')">
-                    <i class="fas fa-code"></i> View Script
-                </button>
+                <div class="step-reasoning">${escapeHtml(step.reasoning || 'AI-generated recon script')}</div>
+
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                    <button class="step-script-toggle" onclick="toggleStepScript(this,'script-${step.step_num}')">
+                        <i class="fas fa-code"></i> Script
+                    </button>
+                    ${step.result ? `<button class="step-script-toggle" onclick="toggleStepScript(this,'result-${step.step_num}')">
+                        <i class="fas fa-chart-bar"></i> Raw Output
+                    </button>` : ''}
+                    ${analyzeBtn}
+                </div>
+
                 <div id="script-${step.step_num}" class="step-script-block" style="display:none;">${escapeHtml(step.script || '')}</div>
-                ${step.result ? `
-                <button class="step-script-toggle" style="margin-top:4px;" onclick="toggleStepScript(this,'result-${step.step_num}')">
-                    <i class="fas fa-chart-bar"></i> View Results
-                </button>
-                <div id="result-${step.step_num}" class="step-result-block" style="display:none;">${escapeHtml(step.result)}</div>` : ''}
+                ${step.result ? `<div id="result-${step.step_num}" class="step-result-block" style="display:none;">${escapeHtml(step.result)}</div>` : ''}
+
+                <div id="analysis-container-${step.step_num}">${analysisHtml}</div>
             </div>
         </div>`;
     });
 
     if (session.status === 'running' && session.steps.length < session.max_steps) {
         html += `<div class="autorecon-step">
-            <div class="step-connector">
-                <div class="step-dot pending"><i class="fas fa-ellipsis-h"></i></div>
-            </div>
+            <div class="step-connector"><div class="step-dot pending"><i class="fas fa-ellipsis-h"></i></div></div>
             <div class="step-content">
-                <div class="step-header"><span class="step-title" style="color:var(--text-muted);">Next steps pending...</span></div>
+                <div class="step-header"><span class="step-title" style="color:var(--text-muted);">Waiting for next step...</span></div>
             </div>
         </div>`;
     }
@@ -2027,9 +2114,79 @@ function toggleStepScript(btn, targetId) {
     if (!block) return;
     const isHidden = block.style.display === 'none';
     block.style.display = isHidden ? 'block' : 'none';
-    btn.innerHTML = isHidden
-        ? '<i class="fas fa-eye-slash"></i> Hide'
-        : (targetId.startsWith('result') ? '<i class="fas fa-chart-bar"></i> View Results' : '<i class="fas fa-code"></i> View Script');
+    const labels = {
+        script:   ['<i class="fas fa-eye-slash"></i> Hide Script',  '<i class="fas fa-code"></i> Script'],
+        result:   ['<i class="fas fa-eye-slash"></i> Hide',         '<i class="fas fa-chart-bar"></i> Raw Output'],
+        analysis: ['<i class="fas fa-eye-slash"></i> Hide',         '<i class="fas fa-eye"></i> Show'],
+    };
+    const prefix = targetId.startsWith('script') ? 'script'
+                 : targetId.startsWith('result') ? 'result' : 'analysis';
+    btn.innerHTML = isHidden ? labels[prefix][0] : labels[prefix][1];
+}
+
+function analyzeStep(sessionId, stepNum, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ANALYZING...'; }
+
+    fetch('/autorecon/analyze_step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, step_num: stepNum, auto_execute: true })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') throw new Error(data.message || 'Analysis failed');
+
+        const container = document.getElementById('analysis-container-' + stepNum);
+        if (container) {
+            // Build a fake step object to render the panel
+            const fakeStep = {
+                step_num: stepNum,
+                ai_analysis: data.analysis,
+                auto_executed_tasks: data.auto_executed || []
+            };
+            container.innerHTML = renderAnalysisPanel(fakeStep, sessionId);
+        }
+
+        // Remove the analyze button
+        if (btn) btn.remove();
+
+        // Show notification about auto-executed tasks
+        const count = (data.auto_executed || []).length;
+        if (count > 0) {
+            showNotification(`AI found actionable intel — ${count} task(s) queued automatically`, 'success');
+        } else {
+            showNotification('AI analysis complete', 'success');
+        }
+    })
+    .catch(e => {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-brain"></i> ANALYZE WITH AI'; }
+        showNotification('Analysis failed: ' + e.message, 'error');
+    });
+}
+
+function manualExecuteSuggestion(sessionId, actionType, reason, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+
+    fetch('/autorecon/execute_suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, action_type: actionType, reason: reason })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') throw new Error(data.message || 'Execution failed');
+        if (btn) {
+            btn.outerHTML = `<span class="action-executed-badge"><i class="fas fa-check"></i> QUEUED</span>`;
+        }
+        // Mark parent card as executed
+        const card = btn ? btn.closest('.suggested-action-card') : null;
+        if (card) card.classList.add('auto-executed');
+        showNotification(`Task '${actionType}' queued for agent`, 'success');
+    })
+    .catch(e => {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rocket"></i> EXECUTE'; }
+        showNotification('Failed: ' + e.message, 'error');
+    });
 }
 
 function loadAutoReconSessions() {
