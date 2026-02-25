@@ -552,6 +552,161 @@
             font-size: 0.75rem;
         }
 
+        /* ========== DASHBOARD: STAT BOXES ========== */
+        .stat-box {
+            text-align: center;
+            padding: 20px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: rgba(255,255,255,0.03);
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .stat-box:hover { background: rgba(255,255,255,0.06); }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -0.5px;
+        }
+        .stat-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 8px;
+            color: var(--text-secondary);
+        }
+        .stat-label i { margin-right: 4px; }
+
+        .stat-box--red  { border-color: rgba(239,68,68,0.35); }
+        .stat-box--red  .stat-value { color: var(--accent-red); text-shadow: 0 0 18px rgba(239,68,68,0.5); }
+
+        .stat-box--cyan { border-color: rgba(34,211,238,0.3); }
+        .stat-box--cyan .stat-value { color: var(--accent-cyan); text-shadow: 0 0 18px rgba(34,211,238,0.4); }
+
+        .stat-box--purple { border-color: rgba(168,85,247,0.35); }
+        .stat-box--purple .stat-value { color: var(--accent-purple); text-shadow: 0 0 18px rgba(168,85,247,0.4); }
+
+        .stat-box--green { border-color: rgba(16,185,129,0.35); }
+        .stat-box--green .stat-value { color: var(--accent-green); text-shadow: 0 0 18px rgba(16,185,129,0.4); }
+
+        /* ========== DASHBOARD: INTEL ITEMS ========== */
+        .intel-item {
+            background: rgba(168,85,247,0.05);
+            border: 1px solid rgba(168,85,247,0.2);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .intel-item:hover {
+            background: rgba(168,85,247,0.09);
+            border-color: rgba(168,85,247,0.4);
+        }
+        .intel-item__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .intel-item__meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .intel-item__target {
+            color: var(--accent-purple);
+            font-weight: 700;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .intel-item__task-id {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+        }
+        .intel-item__timestamp {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+        .intel-item__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* ========== DASHBOARD: TASK ITEMS ========== */
+        .task-item {
+            background: rgba(34,211,238,0.04);
+            border: 1px solid rgba(34,211,238,0.15);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .task-item:hover {
+            background: rgba(34,211,238,0.08);
+            border-color: rgba(34,211,238,0.3);
+        }
+        .task-item__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .task-item__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .task-item__id {
+            color: var(--accent-cyan);
+            font-weight: 700;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+        }
+        .task-item__type {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            background: rgba(255,255,255,0.05);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+        }
+        .task-item__target {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+        .task-item__target i { margin-right: 4px; color: var(--accent-red); }
+
+        /* ========== BADGES ========== */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .badge--green  { background: rgba(16,185,129,0.2);  color: var(--accent-green);  border: 1px solid rgba(16,185,129,0.4); }
+        .badge--amber  { background: rgba(245,158,11,0.2);  color: var(--accent-amber);  border: 1px solid rgba(245,158,11,0.4); }
+        .badge--red    { background: rgba(239,68,68,0.2);   color: var(--accent-red);    border: 1px solid rgba(239,68,68,0.4); }
+        .badge--muted  { background: rgba(71,85,105,0.3);   color: var(--text-muted);    border: 1px solid var(--border-subtle); }
+
+        /* ========== EMPTY STATE ========== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 14px;
+            display: block;
+            opacity: 0.5;
+        }
+        .empty-state p { margin: 4px 0; font-size: 0.88rem; }
+        .empty-state p:first-of-type { color: var(--text-secondary); font-weight: 600; }
+
         /* ========== TERMINAL ========== */
         .terminal {
             background: #040810;
@@ -2042,21 +2197,21 @@
                             <span style="color: #94a3b8; font-size: 0.85rem;">Updated now</span>
                         </div>
                         <div class="grid-4">
-                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
-                                <div style="font-size: 2rem; color: #e94560; font-weight: bold;">{{ agents|length }}</div>
-                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Compromised</div>
+                            <div class="stat-box stat-box--red">
+                                <div class="stat-value">{{ agents|length }}</div>
+                                <div class="stat-label"><i class="fas fa-crosshairs"></i> Compromised</div>
                             </div>
-                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
-                                <div style="font-size: 2rem; color: #0f3460; font-weight: bold;">{{ tasks|length }}</div>
-                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Total Tasks</div>
+                            <div class="stat-box stat-box--cyan">
+                                <div class="stat-value">{{ tasks|length }}</div>
+                                <div class="stat-label"><i class="fas fa-tasks"></i> Total Tasks</div>
                             </div>
-                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
-                                <div style="font-size: 2rem; color: #28a745; font-weight: bold;">{{ results|length }}</div>
-                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Intel Packages</div>
+                            <div class="stat-box stat-box--purple">
+                                <div class="stat-value">{{ results|length }}</div>
+                                <div class="stat-label"><i class="fas fa-database"></i> Intel Packages</div>
                             </div>
-                            <div style="text-align: center; padding: 20px; background: rgba(15, 52, 96, 0.2); border-radius: 8px;">
-                                <div style="font-size: 2rem; color: #28a745; font-weight: bold;">100%</div>
-                                <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">Success Rate</div>
+                            <div class="stat-box stat-box--green">
+                                <div class="stat-value">100%</div>
+                                <div class="stat-label"><i class="fas fa-check-circle"></i> Success Rate</div>
                             </div>
                         </div>
                     </div>
@@ -2113,44 +2268,44 @@
                     <div style="max-height: 400px; overflow-y: auto;">
                         {% if tasks %}
                         {% for id, task in tasks.items() %}
-                        <div style="background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <div>
-                                    <span style="color: #e94560; font-weight: bold;">{{ id[:8] }}...</span>
-                                    <span style="color: #0f3460; margin-left: 15px;">{{ task.task_type }}</span>
+                        <div class="task-item">
+                            <div class="task-item__header">
+                                <div class="task-item__meta">
+                                    <span class="task-item__id">{{ id[:8] }}…</span>
+                                    <span class="task-item__type">{{ task.task_type }}</span>
                                     {% if task.ai_generated %}
-                                    <span style="background: #28a745; color: #fff; padding: 2px 8px; margin-left: 10px; font-size: 0.75rem; font-weight: bold; border-radius: 3px;">AI</span>
+                                    <span class="badge badge--green">AI</span>
                                     {% else %}
-                                    <span style="background: #6c757d; color: #fff; padding: 2px 8px; margin-left: 10px; font-size: 0.75rem; font-weight: bold; border-radius: 3px;">FALLBACK</span>
+                                    <span class="badge badge--muted">FALLBACK</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if task.status == 'pending' %}
+                                    <span class="badge badge--amber">QUEUED</span>
+                                    {% elif task.status == 'completed' %}
+                                    <span class="badge badge--green">EXECUTED</span>
+                                    {% elif task.status == 'failed' %}
+                                    <span class="badge badge--red">FAILED</span>
+                                    {% else %}
+                                    <span class="badge badge--muted">{{ task.status }}</span>
                                     {% endif %}
                                 </div>
                             </div>
-                            <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">
-                                Target: {{ task.agent_id }}
-                                <span style="margin-left: 20px;">
-                                    {% if task.status == 'pending' %}
-                                    <span style="color: #ffc107;">QUEUED</span>
-                                    {% elif task.status == 'completed' %}
-                                    <span style="color: #28a745;">EXECUTED</span>
-                                    {% elif task.status == 'failed' %}
-                                    <span style="color: #dc3545;">FAILED</span>
-                                    {% else %}
-                                    {{ task.status }}
-                                    {% endif %}
-                                </span>
+                            <div class="task-item__target">
+                                <i class="fas fa-crosshairs"></i> {{ task.agent_id }}
                             </div>
-                            <button class="btn small view-payload-btn" 
-                                    data-task-id="{{ id }}" 
+                            <button class="btn small view-payload-btn"
+                                    data-task-id="{{ id }}"
                                     data-payload="{{ task.code|tojson|forceescape }}">
-                                <i class="fas fa-eye"></i> View Payload
+                                <i class="fas fa-eye"></i> Payload
                             </button>
                         </div>
                         {% endfor %}
                         {% else %}
-                        <div style="text-align: center; padding: 40px; color: #6c757d;">
-                            <i class="fas fa-code" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                        <div class="empty-state">
+                            <i class="fas fa-code"></i>
                             <p>No active tasks</p>
-                            <p style="font-size: 0.9rem;">Launch a task from the target menu</p>
+                            <p>Launch a task from the target menu</p>
                         </div>
                         {% endif %}
                     </div>
@@ -2163,22 +2318,20 @@
                     <div style="max-height: 400px; overflow-y: auto;">
                         {% if results %}
                         {% for id, result in results.items() %}
-                        <div style="background: rgba(15, 52, 96, 0.1); border: 1px solid #2d3748; padding: 15px; margin-bottom: 10px; border-radius: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <div>
-                                    <span style="color: #e94560; font-weight: bold;">TARGET: {{ result.agent_id }}</span>
-                                    <span style="color: #94a3b8; margin-left: 15px;">TASK: {{ result.task_id[:8] }}...</span>
+                        <div class="intel-item">
+                            <div class="intel-item__header">
+                                <div class="intel-item__meta">
+                                    <span class="intel-item__target"><i class="fas fa-bullseye"></i> {{ result.agent_id }}</span>
+                                    <span class="intel-item__task-id">TASK {{ result.task_id[:8] }}…</span>
                                 </div>
+                                <span class="intel-item__timestamp">{{ result.timestamp }}</span>
                             </div>
-                            <div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 10px;">
-                                {{ result.timestamp }}
-                            </div>
-                            <div style="display: flex; gap: 10px;">
-                                <button class="btn small view-intel-btn" 
+                            <div class="intel-item__actions">
+                                <button class="btn small view-intel-btn"
                                         data-intel="{{ result.data|tojson|forceescape }}">
-                                    <i class="fas fa-eye"></i> View Intel
+                                    <i class="fas fa-eye"></i> VIEW
                                 </button>
-                                <button class="btn small primary ai-analyze-btn" 
+                                <button class="btn small primary ai-analyze-btn"
                                         data-intel="{{ result.data|tojson|forceescape }}">
                                     <i class="fas fa-brain"></i> AI ANALYZE
                                 </button>
@@ -2186,10 +2339,10 @@
                         </div>
                         {% endfor %}
                         {% else %}
-                        <div style="text-align: center; padding: 40px; color: #6c757d;">
-                            <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
                             <p>No intelligence data</p>
-                            <p style="font-size: 0.9rem;">Results will appear after tasks complete</p>
+                            <p>Results will appear after tasks complete</p>
                         </div>
                         {% endif %}
                     </div>
