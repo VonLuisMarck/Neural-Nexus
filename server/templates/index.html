@@ -1836,6 +1836,253 @@
             font-size: 0.78rem;
         }
 
+        /* ========== AI HUNTER: ATTACK MODE TOGGLE ========== */
+        .hunter-mode-btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .hunter-mode-btn.active {
+            background: rgba(168,85,247,0.15);
+            color: var(--accent-purple);
+        }
+        .hunter-mode-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+        }
+
+        /* ========== AI HUNTER: VISUAL RESULTS ========== */
+
+        /* Doc access matrix */
+        .doc-matrix {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            margin-bottom: 18px;
+        }
+        .doc-matrix th {
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border-subtle);
+            text-align: left;
+        }
+        .doc-matrix td {
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        .doc-matrix tr:hover td { background: rgba(255,255,255,0.02); }
+        .access-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .access-badge.granted {
+            background: rgba(16,185,129,0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .access-badge.denied {
+            background: rgba(239,68,68,0.12);
+            color: var(--accent-red);
+            border: 1px solid rgba(239,68,68,0.25);
+        }
+        .classification-chip {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .classification-chip.public   { background: rgba(34,211,238,0.12); color: var(--accent-cyan);   border: 1px solid rgba(34,211,238,0.25); }
+        .classification-chip.sensitive{ background: rgba(245,158,11,0.15); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.3); }
+        .classification-chip.secret   { background: rgba(239,68,68,0.15);  color: var(--accent-red);    border: 1px solid rgba(239,68,68,0.3); }
+
+        /* Injection cards */
+        .injection-card {
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            overflow: hidden;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .injection-card.bypassed {
+            border-color: rgba(239,68,68,0.5);
+            box-shadow: 0 0 20px rgba(239,68,68,0.08);
+        }
+        .injection-card.blocked {
+            border-color: rgba(16,185,129,0.3);
+        }
+        .injection-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border-subtle);
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .injection-card__meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .injection-card__user {
+            color: var(--accent-purple);
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .injection-card__role {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            background: rgba(255,255,255,0.05);
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .bypassed-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            background: rgba(239,68,68,0.2);
+            color: var(--accent-red);
+            border: 1px solid rgba(239,68,68,0.5);
+            animation: pulse-red 2s infinite;
+        }
+        .blocked-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            background: rgba(16,185,129,0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+            50% { box-shadow: 0 0 8px 2px rgba(239,68,68,0.3); }
+        }
+        .injection-card__body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        .injection-pane {
+            padding: 10px 12px;
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }
+        .injection-pane.prompt-pane {
+            border-right: 1px solid var(--border-subtle);
+            background: rgba(168,85,247,0.03);
+        }
+        .injection-pane.reply-pane {
+            background: rgba(0,0,0,0.15);
+        }
+        .injection-pane__label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 6px;
+        }
+        .injection-pane.prompt-pane .injection-pane__text {
+            color: var(--accent-purple);
+            font-style: italic;
+        }
+        .injection-pane.reply-pane .injection-pane__text {
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            max-height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* AI Hunter transition card (from AutoRecon) */
+        .ai-hunter-transition-card {
+            background: linear-gradient(135deg, rgba(168,85,247,0.1), rgba(239,68,68,0.08));
+            border: 1px solid rgba(168,85,247,0.4);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .ai-hunter-transition-card__icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(168,85,247,0.2);
+            border: 1px solid rgba(168,85,247,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: var(--accent-purple);
+            flex-shrink: 0;
+            animation: pulse-purple 2s infinite;
+        }
+        @keyframes pulse-purple {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+            50% { box-shadow: 0 0 12px 3px rgba(168,85,247,0.25); }
+        }
+        .ai-hunter-transition-card__body { flex: 1; min-width: 0; }
+        .ai-hunter-transition-card__title {
+            color: var(--accent-purple);
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .ai-hunter-transition-card__desc {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            line-height: 1.4;
+        }
+        .ai-hunter-transition-btn {
+            background: linear-gradient(135deg, var(--accent-purple), #7c3aed);
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 0 16px rgba(168,85,247,0.3);
+            transition: opacity 0.15s;
+        }
+        .ai-hunter-transition-btn:hover { opacity: 0.88; }
+
         /* ========== AUTORECON: AI ANALYSIS PANEL ========== */
         .step-analysis-panel {
             margin-top: 10px;
@@ -2755,27 +3002,49 @@
                             <h3><i class="fas fa-cog"></i> Configuration</h3>
                         </div>
 
-                        <div class="form-group">
-                            <label>Target Agent</label>
-                            <select id="ai-hunter-agent-select">
-                                <option value="">— select agent —</option>
-                                {% for id, agent in agents.items() %}
-                                <option value="{{ id }}">{{ id }}</option>
-                                {% endfor %}
-                            </select>
+                        <!-- Attack Mode selector -->
+                        <div style="display:flex;gap:0;margin-bottom:14px;border:1px solid var(--border-accent);border-radius:8px;overflow:hidden;">
+                            <button id="hunter-mode-direct" class="hunter-mode-btn active" onclick="setHunterMode('direct')">
+                                <i class="fas fa-bolt"></i> Direct HTTP
+                            </button>
+                            <button id="hunter-mode-agent" class="hunter-mode-btn" onclick="setHunterMode('agent')">
+                                <i class="fas fa-robot"></i> Via Agent
+                            </button>
                         </div>
 
-                        <div class="form-group">
-                            <label>LLM Host</label>
-                            <select id="ai-hunter-target-type">
-                                <option value="localhost">Localhost (agent's machine)</option>
-                                <option value="custom">Custom IP / Hostname</option>
-                            </select>
+                        <!-- Direct mode: target URL -->
+                        <div id="hunter-direct-section">
+                            <div class="form-group">
+                                <label>Target URL</label>
+                                <input type="text" id="ai-hunter-direct-url" value="http://localhost:8080" placeholder="http://192.168.1.x:8080">
+                            </div>
+                            <button class="btn small" style="width:100%;margin-bottom:12px;background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.3);color:var(--accent-purple);" onclick="prefillLabTarget()">
+                                <i class="fas fa-flask"></i> LOAD VICTIM-LAB PRESET
+                            </button>
                         </div>
 
-                        <div id="ai-hunter-custom-target" class="form-group" style="display: none;">
-                            <label>Target IP / Hostname</label>
-                            <input type="text" id="ai-hunter-target-input" placeholder="192.168.1.100">
+                        <!-- Agent mode: agent selector + host -->
+                        <div id="hunter-agent-section" style="display:none;">
+                            <div class="form-group">
+                                <label>Target Agent</label>
+                                <select id="ai-hunter-agent-select">
+                                    <option value="">— select agent —</option>
+                                    {% for id, agent in agents.items() %}
+                                    <option value="{{ id }}">{{ id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>LLM Host on Agent</label>
+                                <select id="ai-hunter-target-type">
+                                    <option value="localhost">Localhost (agent's machine)</option>
+                                    <option value="custom">Custom IP / Hostname</option>
+                                </select>
+                            </div>
+                            <div id="ai-hunter-custom-target" class="form-group" style="display:none;">
+                                <label>Target IP / Hostname</label>
+                                <input type="text" id="ai-hunter-target-input" placeholder="192.168.1.100">
+                            </div>
                         </div>
 
                         <div class="grid-2" style="gap:12px;">
@@ -2854,6 +3123,9 @@
                             </button>
                             <button id="ai-hunter-deploy-btn" class="btn primary" style="flex:1;display:none;">
                                 <i class="fas fa-rocket"></i> DEPLOY
+                            </button>
+                            <button id="ai-hunter-direct-attack-btn" class="btn primary" style="flex:1;background:linear-gradient(135deg,var(--accent-purple),#7c3aed);box-shadow:0 0 16px rgba(168,85,247,0.3);">
+                                <i class="fas fa-syringe"></i> ATTACK
                             </button>
                         </div>
 

@@ -1914,6 +1914,11 @@ function pollAutoRecon() {
             renderAutoReconChain(session);
             updateAutoReconStatus(session);
 
+            // If AutoRecon found an AI Hunter target, show the transition card
+            if (session.ai_hunter_target) {
+                renderAIHunterTransitionCard(session.ai_hunter_target, session.id);
+            }
+
             if (session.status === 'running') {
                 autoReconPollTimer = setTimeout(pollAutoRecon, 4000);
             } else {
@@ -1992,6 +1997,31 @@ function renderAnalysisPanel(step, sessionId) {
     const executedIds = new Set(executed.map(e => e.task_type));
 
     const actions = (a.suggested_actions || []).map(act => {
+        if (act.action_type === 'ai_hunter') {
+            // Special card for AI Hunter transition
+            const targetUrl = act.target_url || 'http://localhost:8080';
+            const wasExecuted = executedIds.has('ai_hunter');
+            return `
+            <div class="ai-hunter-transition-card">
+                <div class="ai-hunter-transition-card__icon"><i class="fas fa-robot"></i></div>
+                <div class="ai-hunter-transition-card__body">
+                    <div class="ai-hunter-transition-card__title">
+                        <i class="fas fa-syringe"></i> LLM Application Detected — AI Hunter Ready
+                    </div>
+                    <div class="ai-hunter-transition-card__desc">
+                        ${escapeHtml(act.reason || '')}
+                        <br><span style="color:var(--accent-purple);font-family:monospace;font-size:0.8rem;">${escapeHtml(targetUrl)}</span>
+                    </div>
+                </div>
+                ${wasExecuted
+                    ? `<span class="action-executed-badge"><i class="fas fa-check"></i> AUTO-LAUNCHED</span>`
+                    : `<button class="ai-hunter-transition-btn" onclick="launchAIHunterFromAutorecon('${escapeHtml(targetUrl)}','${sessionId}')">
+                           <i class="fas fa-syringe"></i> LAUNCH AI HUNTER
+                       </button>`
+                }
+            </div>`;
+        }
+
         const meta = ACTION_META[act.action_type] || { icon: 'fas fa-bolt', label: act.action_type, cls: 'recon' };
         const wasExecuted = executedIds.has(act.action_type);
         const badge = wasExecuted
@@ -2028,6 +2058,36 @@ function renderAnalysisPanel(step, sessionId) {
             </div>` : ''}
         </div>
     </div>`;
+}
+
+function renderAIHunterTransitionCard(targetUrl, sessionId) {
+    // Show a persistent banner at the bottom of the chain panel when an LLM target is found
+    const existing = document.getElementById('autorecon-ai-hunter-banner');
+    if (existing) return;
+
+    const chain = document.getElementById('autorecon-chain');
+    if (!chain) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'autorecon-ai-hunter-banner';
+    banner.className = 'ai-hunter-transition-card';
+    banner.style.marginTop = '20px';
+    banner.innerHTML = `
+        <div class="ai-hunter-transition-card__icon"><i class="fas fa-robot"></i></div>
+        <div class="ai-hunter-transition-card__body">
+            <div class="ai-hunter-transition-card__title">
+                <i class="fas fa-syringe"></i> AI/LLM Application Found by AutoRecon
+            </div>
+            <div class="ai-hunter-transition-card__desc">
+                AutoRecon detected a RAG/LLM service at
+                <span style="color:var(--accent-purple);font-family:monospace;">${escapeHtml(targetUrl)}</span>.
+                AI Hunter will enumerate users, docs and execute prompt injection attacks.
+            </div>
+        </div>
+        <button class="ai-hunter-transition-btn" onclick="launchAIHunterFromAutorecon('${escapeHtml(targetUrl)}','${sessionId}')">
+            <i class="fas fa-syringe"></i> LAUNCH AI HUNTER
+        </button>`;
+    chain.appendChild(banner);
 }
 
 function renderAutoReconChain(session) {
@@ -2323,6 +2383,204 @@ function updateHunterPhases(authDone, injectDone) {
         if (!el) return;
         el.className = 'phase-node' + (done[i] ? ' done' : (i === (done.indexOf(false)) ? ' active' : ''));
     });
+}
+
+// ─── Attack mode toggle ───────────────────────────────────────────────────────
+let _hunterMode = 'direct'; // 'direct' | 'agent'
+
+function setHunterMode(mode) {
+    _hunterMode = mode;
+    document.getElementById('hunter-mode-direct').classList.toggle('active', mode === 'direct');
+    document.getElementById('hunter-mode-agent').classList.toggle('active', mode === 'agent');
+    document.getElementById('hunter-direct-section').style.display  = mode === 'direct' ? '' : 'none';
+    document.getElementById('hunter-agent-section').style.display   = mode === 'agent'  ? '' : 'none';
+    const directBtn = document.getElementById('ai-hunter-direct-attack-btn');
+    const genBtn    = document.getElementById('ai-hunter-generate-btn');
+    const deployBtn = document.getElementById('ai-hunter-deploy-btn');
+    if (mode === 'direct') {
+        if (directBtn) directBtn.style.display = '';
+        if (genBtn)    genBtn.style.display = 'none';
+        if (deployBtn) deployBtn.style.display = 'none';
+    } else {
+        if (directBtn) directBtn.style.display = 'none';
+        if (genBtn)    genBtn.style.display = '';
+    }
+}
+
+function prefillLabTarget() {
+    const urlInput = document.getElementById('ai-hunter-direct-url');
+    if (urlInput) urlInput.value = 'http://localhost:8080';
+    showNotification('Victim-lab preset loaded — target: localhost:8080', 'success');
+}
+
+// Wire direct attack button
+document.addEventListener('DOMContentLoaded', function() {
+    const directBtn = document.getElementById('ai-hunter-direct-attack-btn');
+    if (directBtn) directBtn.addEventListener('click', launchDirectAttack);
+    // Default mode
+    setHunterMode('direct');
+}, { once: true });
+
+async function launchDirectAttack() {
+    const targetUrl = (document.getElementById('ai-hunter-direct-url') || {}).value || 'http://localhost:8080';
+    const strategy  = (document.getElementById('ai-hunter-selected-strategy') || {}).value || 'data_exfil';
+    const statusEl  = document.getElementById('hunter-result-status');
+    const btn       = document.getElementById('ai-hunter-direct-attack-btn');
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ATTACKING…'; }
+    if (statusEl) { statusEl.textContent = 'Attack in progress…'; statusEl.style.color = 'var(--accent-amber)'; }
+
+    updateHunterPhases(false, false);
+
+    try {
+        const res = await fetch('/ai_hunter/direct_attack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_url: targetUrl, strategy }),
+        });
+        const json = await res.json();
+        if (json.status !== 'success') throw new Error(json.message || 'Attack failed');
+        renderHunterResults(json.report);
+        showNotification('AI Hunter attack complete', 'success');
+    } catch(e) {
+        if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = 'var(--accent-red)'; }
+        showNotification('Direct attack failed: ' + e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-syringe"></i> ATTACK'; }
+    }
+}
+
+// Called from AutoRecon "SWITCH TO AI HUNTER" button
+function launchAIHunterFromAutorecon(targetUrl, sessionId) {
+    switchTab('ai-hunter');
+    setTimeout(() => {
+        setHunterMode('direct');
+        const urlInput = document.getElementById('ai-hunter-direct-url');
+        if (urlInput) urlInput.value = targetUrl;
+        showNotification(`AI Hunter pre-loaded with AutoRecon target: ${targetUrl}`, 'success');
+        // Auto-launch after a short delay for visual effect
+        setTimeout(launchDirectAttack, 800);
+    }, 300);
+}
+
+// ─── Render results — visual doc matrix + injection cards ────────────────────
+function renderHunterResults(report) {
+    const resultsDiv = document.getElementById('ai-hunter-results');
+    const emptyState = document.getElementById('hunter-empty-state');
+    const statusEl   = document.getElementById('hunter-result-status');
+    if (!resultsDiv) return;
+
+    const endpoints     = report.endpoints     || [];
+    const sessions      = report.sessions      || [];
+    const docs          = report.docs          || [];
+    const llm_responses = report.llm_responses || [];
+
+    const authDone   = sessions.length > 0;
+    const injectDone = llm_responses.some(r => r.injection_succeeded);
+
+    updateHunterPhases(authDone, injectDone);
+
+    // ── Summary metrics ──────────────────────────────────────────
+    const summaryDiv = document.getElementById('ai-hunter-summary');
+    if (summaryDiv) {
+        const bypassedCount = llm_responses.filter(r => r.injection_succeeded).length;
+        summaryDiv.innerHTML = [
+            { label: 'Endpoints',       value: endpoints.length,  color: 'var(--accent-cyan)',   icon: 'fa-server' },
+            { label: 'Auth Cracked',    value: sessions.length,   color: 'var(--accent-purple)', icon: 'fa-key' },
+            { label: 'Docs Accessed',   value: docs.filter(d => d.access === 'granted').length, color: 'var(--accent-amber)', icon: 'fa-file-alt' },
+            { label: 'Injections OK',   value: bypassedCount,     color: bypassedCount > 0 ? 'var(--accent-red)' : 'var(--text-muted)', icon: 'fa-syringe' },
+        ].map(m => `
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:${m.color};"><i class="fas ${m.icon}" style="font-size:0.8em;opacity:0.7;"></i> ${m.value}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">${m.label}</div>
+            </div>`).join('');
+    }
+
+    // ── Sessions ─────────────────────────────────────────────────
+    const sessionsList = document.getElementById('hunter-sessions-list');
+    if (sessionsList) {
+        sessionsList.innerHTML = sessions.length === 0
+            ? '<div style="color:var(--text-muted);font-size:0.82rem;margin-bottom:16px;">No sessions authenticated</div>'
+            : sessions.map(s => `
+                <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:7px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <i class="fas fa-user-secret" style="color:var(--accent-purple);"></i>
+                    <span style="color:var(--accent-purple);font-weight:700;">${escapeHtml(s.username)}</span>
+                    <span style="background:rgba(255,255,255,0.06);color:var(--text-secondary);padding:1px 7px;border-radius:3px;font-size:0.75rem;">${escapeHtml(s.role||'?')}</span>
+                    ${(s.scopes||[]).map(sc => `<span style="color:var(--text-muted);font-size:0.72rem;">${escapeHtml(sc)}</span>`).join('')}
+                    <span style="margin-left:auto;color:var(--accent-green);font-size:0.72rem;font-weight:700;"><i class="fas fa-check"></i> AUTH OK</span>
+                </div>`).join('');
+    }
+
+    // ── Doc access matrix ─────────────────────────────────────────
+    const detailedDiv = document.getElementById('ai-hunter-detailed-results');
+    if (!detailedDiv) return;
+
+    let html = '';
+
+    if (docs.length > 0) {
+        html += `<div style="margin-bottom:10px;color:var(--text-secondary);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+            <i class="fas fa-folder-open" style="color:var(--accent-amber);"></i> Document Access Matrix
+        </div>`;
+        html += `<table class="doc-matrix">
+            <thead><tr>
+                <th>Document</th><th>Classification</th><th>User</th><th>Access</th><th>Preview</th>
+            </tr></thead><tbody>`;
+        for (const d of docs) {
+            const cls = d.classification || 'public';
+            const preview = d.content_preview ? escapeHtml(d.content_preview.slice(0, 80)) + '…' : '—';
+            html += `<tr>
+                <td style="font-family:monospace;font-size:0.75rem;color:var(--text-secondary);">${escapeHtml(d.id||'?')}</td>
+                <td><span class="classification-chip ${cls}">${cls}</span></td>
+                <td style="color:var(--accent-purple);font-weight:600;">${escapeHtml(d.user||'?')}</td>
+                <td><span class="access-badge ${d.access==='granted'?'granted':'denied'}">${d.access==='granted'?'✓ GRANTED':'✗ DENIED'}</span></td>
+                <td style="color:var(--text-muted);font-size:0.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.access==='granted' ? preview : '—'}</td>
+            </tr>`;
+        }
+        html += `</tbody></table>`;
+    }
+
+    // ── Injection result cards ─────────────────────────────────────
+    if (llm_responses.length > 0) {
+        html += `<div style="margin-bottom:10px;margin-top:4px;color:var(--text-secondary);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+            <i class="fas fa-syringe" style="color:var(--accent-purple);"></i> Prompt Injection Results
+        </div>`;
+        for (const r of llm_responses) {
+            const bypassed = r.injection_succeeded;
+            html += `<div class="injection-card ${bypassed ? 'bypassed' : 'blocked'}">
+                <div class="injection-card__header">
+                    <div class="injection-card__meta">
+                        <i class="fas fa-user-secret" style="color:var(--accent-purple);font-size:0.8rem;"></i>
+                        <span class="injection-card__user">${escapeHtml(r.user||'?')}</span>
+                        <span class="injection-card__role">${escapeHtml(r.role||'?')}</span>
+                    </div>
+                    ${bypassed
+                        ? `<span class="bypassed-badge"><i class="fas fa-skull-crossbones"></i> BYPASSED</span>`
+                        : `<span class="blocked-badge"><i class="fas fa-shield-alt"></i> BLOCKED</span>`
+                    }
+                </div>
+                <div class="injection-card__body">
+                    <div class="injection-pane prompt-pane">
+                        <div class="injection-pane__label">Injected Prompt</div>
+                        <div class="injection-pane__text">${escapeHtml(r.prompt||'')}</div>
+                    </div>
+                    <div class="injection-pane reply-pane">
+                        <div class="injection-pane__label">LLM Response</div>
+                        <div class="injection-pane__text">${escapeHtml(r.reply||'No response')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+    }
+
+    detailedDiv.innerHTML = html || '<div style="color:var(--text-muted);font-size:0.82rem;">No results yet</div>';
+
+    if (emptyState) emptyState.style.display = 'none';
+    resultsDiv.style.display = 'block';
+    if (statusEl) {
+        const bypassed = llm_responses.filter(r => r.injection_succeeded).length;
+        statusEl.textContent = bypassed > 0 ? `${bypassed} injection(s) succeeded` : 'Attack complete — all blocked';
+        statusEl.style.color = bypassed > 0 ? 'var(--accent-red)' : 'var(--accent-green)';
+    }
 }
 
 // Hook into existing deployAIHunterPayload to render results

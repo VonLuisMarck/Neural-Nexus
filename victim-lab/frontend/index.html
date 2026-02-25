@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>CorpAI Assistant — Enterprise</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-alt: #0b1020;
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #f97373;
+      --border: #1f2933;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      flex: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .chat-panel {
+      flex: 2;
+      background: linear-gradient(145deg, #020617 0, #030712 100%);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .title-main {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      font-size: 14px;
+    }
+
+    .title-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+    }
+
+    .status-dot.offline {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.2);
+    }
+
+    .chat-body {
+      flex: 1;
+      padding: 12px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 90%;
+    }
+
+    .message.user {
+      margin-left: auto;
+      flex-direction: row-reverse;
+    }
+
+    .bubble {
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .message.user .bubble {
+      background: var(--accent-soft);
+      border-color: rgba(129, 140, 248, 0.8);
+    }
+
+    .avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      background: radial-gradient(circle at 30% 0, #4f46e5 0, #111827 55%);
+      color: #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .avatar.user {
+      background: radial-gradient(circle at 30% 0, #22c55e 0, #064e3b 55%);
+    }
+
+    .meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .chat-input {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.85);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 2;
+      resize: none;
+      min-height: 56px;
+      max-height: 120px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .logs-input {
+      flex: 1.5;
+      min-height: 56px;
+      max-height: 120px;
+      border-radius: 10px;
+      border: 1px dashed rgba(55, 65, 81, 0.8);
+      background: rgba(15, 23, 42, 0.6);
+      color: var(--muted);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-family: monospace;
+      white-space: pre;
+      overflow-y: auto;
+    }
+
+    .input-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #4f46e5, #2563eb);
+      color: #e5e7eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      box-shadow: none;
+      color: var(--muted);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      color: var(--muted);
+    }
+
+    .config-group {
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      background: rgba(15, 23, 42, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .config-row label {
+      width: 70px;
+      color: var(--muted);
+    }
+
+    .config-row input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .logs-panel {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 8px;
+      background: rgba(15, 23, 42, 0.7);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 10px;
+    }
+
+    .log-item {
+      padding: 6px 7px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .log-body {
+      color: #d1d5db;
+      font-size: 10px;
+      max-height: 40px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .log-tags {
+      display: inline-flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      padding: 1px 6px;
+      font-size: 9px;
+      color: var(--muted);
+    }
+
+    /* ── Skill extension panel ── */
+    .skill-panel {
+      border-radius: 10px;
+      border: 1px solid rgba(99,102,241,0.35);
+      background: linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(37,99,235,0.06) 100%);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .skill-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a5b4fc;
+      letter-spacing: 0.03em;
+    }
+    .skill-header .icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: linear-gradient(135deg,#4f46e5,#2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .skill-new-badge {
+      margin-left: auto;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: rgba(99,102,241,0.25);
+      border: 1px solid rgba(99,102,241,0.5);
+      color: #a5b4fc;
+    }
+    .skill-desc {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .skill-meta {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .skill-tag {
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(55,65,81,0.9);
+      color: var(--muted);
+    }
+    .skill-install-btn {
+      background: linear-gradient(135deg, #4f46e5, #2563eb);
+      color: #e5e7eb;
+      border: none;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: 100%;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(79,70,229,0.35);
+    }
+    .skill-install-btn:hover { opacity: 0.9; }
+    .skill-install-btn.installed {
+      background: linear-gradient(135deg, #059669, #10b981);
+      box-shadow: 0 0 12px rgba(16,185,129,0.35);
+      cursor: default;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 0;
+      }
+
+      .app {
+        flex-direction: column;
+        padding: 8px;
+      }
+
+      .sidebar {
+        order: -1;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="title">
+        <div class="title-main">CorpAI Assistant</div>
+        <div class="title-sub" id="lab-subtitle">Enterprise Knowledge Base · Powered by LLM</div>
+      </div>
+      <div id="status-badge" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="status-text">Checking LLM...</span>
+      </div>
+    </div>
+    <div id="chat-body" class="chat-body"></div>
+    <div class="chat-input">
+      <div class="input-row">
+        <textarea id="message-input" placeholder="Escribe un mensaje o pregunta de seguridad..."></textarea>
+        <div class="logs-input" id="logs-input" contenteditable="true" spellcheck="false"
+             placeholder="Pega aquí logs, trazas HTTP, JSON, etc."></div>
+        <button id="send-btn">
+          <span>Enviar</span>
+        </button>
+      </div>
+      <div class="input-footer">
+        <span id="helper-text">Shift+Enter para salto de línea • Envía logs + prompt al LLM</span>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" id="clear-btn">Limpiar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span>Actividad de laboratorio</span>
+      <span class="pill" id="lab-pill">LAB: demo-lab-01</span>
+    </div>
+
+    <div class="config-group">
+      <div class="config-row">
+        <label for="cfg-host">Host LLM</label>
+        <input id="cfg-host" />
+      </div>
+      <div class="config-row">
+        <label for="cfg-model">Modelo</label>
+        <input id="cfg-model" />
+      </div>
+      <div class="config-row">
+        <label for="cfg-labid">Lab ID</label>
+        <input id="cfg-labid" />
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:6px; margin-top:4px;">
+        <button class="secondary" id="save-cfg-btn">Guardar</button>
+        <button class="secondary" id="reset-cfg-btn">Reset</button>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:6px;">
+      <span>Logs (solo sesión actual)</span>
+      <div style="display:flex; gap:4px;">
+        <button class="secondary" id="export-btn">Exportar JSON</button>
+      </div>
+    </div>
+
+    <div id="logs-panel" class="logs-panel"></div>
+
+    <!-- ── Extensions marketplace ── -->
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;margin-bottom:4px;letter-spacing:0.04em;">EXTENSIONS</div>
+    <div class="skill-panel" id="skill-panel">
+      <div class="skill-header">
+        <div class="icon">⚡</div>
+        Neural Nexus AI Skills
+        <span class="skill-new-badge">NEW</span>
+      </div>
+      <div class="skill-desc">
+        Enterprise AI orchestration pack. Adds multi-model routing, context caching,
+        and remote skills execution to your assistant.
+      </div>
+      <div class="skill-meta">
+        <span class="skill-tag">llama3</span>
+        <span class="skill-tag">mistral</span>
+        <span class="skill-tag">gpt-4o</span>
+        <span class="skill-tag">v2.1.0</span>
+      </div>
+      <button class="skill-install-btn" id="skill-install-btn" onclick="installSkill()">
+        ↓ Install Skills Pack
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const chatBody = document.getElementById("chat-body");
+  const messageInput = document.getElementById("message-input");
+  const logsInput = document.getElementById("logs-input");
+  const sendBtn = document.getElementById("send-btn");
+  const clearBtn = document.getElementById("clear-btn");
+  const statusBadge = document.getElementById("status-badge");
+  const statusText = document.getElementById("status-text");
+  const labSubtitle = document.getElementById("lab-subtitle");
+  const labPill = document.getElementById("lab-pill");
+  const logsPanel = document.getElementById("logs-panel");
+  const exportBtn = document.getElementById("export-btn");
+  const saveCfgBtn = document.getElementById("save-cfg-btn");
+  const resetCfgBtn = document.getElementById("reset-cfg-btn");
+  const cfgHost = document.getElementById("cfg-host");
+  const cfgModel = document.getElementById("cfg-model");
+  const cfgLabId = document.getElementById("cfg-labid");
+
+  let labConfig = {
+    host: window.location.origin,
+    labId: "demo-lab-01",
+    model: "llama3"
+  };
+
+  let busy = false;
+  let logsStore = [];
+
+  function loadConfig() {
+    const fromStorage = localStorage.getItem("ai_lab_config");
+    if (fromStorage) {
+      try {
+        const parsed = JSON.parse(fromStorage);
+        labConfig = { ...labConfig, ...parsed };
+      } catch (e) {
+        console.warn("Bad config in storage", e);
+      }
+    }
+    cfgHost.value = labConfig.host;
+    cfgModel.value = labConfig.model;
+    cfgLabId.value = labConfig.labId;
+    labPill.textContent = "LAB: " + labConfig.labId;
+    labSubtitle.textContent = "LLM " + labConfig.model + " @ " + labConfig.host;
+  }
+
+  function saveConfig() {
+    labConfig.host = cfgHost.value || labConfig.host;
+    labConfig.model = cfgModel.value || labConfig.model;
+    labConfig.labId = cfgLabId.value || labConfig.labId;
+    localStorage.setItem("ai_lab_config", JSON.stringify(labConfig));
+    labPill.textContent = "LAB: " + labConfig.labId;
+    labSubtitle.textContent = "LLM " + labConfig.model + " @ " + labConfig.host;
+    checkHealth();
+  }
+
+  function resetConfig() {
+    localStorage.removeItem("ai_lab_config");
+    labConfig = {
+      host: window.location.origin,
+      labId: "demo-lab-01",
+      model: "llama3"
+    };
+    loadConfig();
+    checkHealth();
+  }
+
+  function appendMessage(role, text, metaText) {
+    const container = document.createElement("div");
+    container.className = "message " + (role === "user" ? "user" : "assistant");
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar " + (role === "user" ? "user" : "assistant");
+    avatar.textContent = role === "user" ? "U" : "AI";
+
+    const col = document.createElement("div");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = metaText || "";
+
+    col.appendChild(bubble);
+    if (metaText) col.appendChild(meta);
+
+    container.appendChild(avatar);
+    container.appendChild(col);
+
+    chatBody.appendChild(container);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function pushLog(entry) {
+    logsStore.push(entry);
+    const div = document.createElement("div");
+    div.className = "log-item";
+
+    const meta = document.createElement("div");
+    meta.className = "log-meta";
+    meta.innerHTML =
+      `<span>${entry.timestamp}</span><span>${entry.lab_id}</span>`;
+
+    const body = document.createElement("div");
+    body.className = "log-body";
+    const preview = (entry.request.user_message || entry.request.logs || "").toString();
+    body.textContent = preview.replace(/\s+/g, " ").slice(0, 120);
+
+    const tags = document.createElement("div");
+    tags.className = "log-tags";
+    const tagConv = document.createElement("span");
+    tagConv.className = "tag";
+    tagConv.textContent = entry.conversation_id.slice(0, 8);
+    const tagModel = document.createElement("span");
+    tagModel.className = "tag";
+    tagModel.textContent = entry.response.model;
+    tags.appendChild(tagConv);
+    tags.appendChild(tagModel);
+
+    div.appendChild(meta);
+    div.appendChild(body);
+    div.appendChild(tags);
+
+    logsPanel.prepend(div);
+  }
+
+  async function checkHealth() {
+    try {
+      statusText.textContent = "Checking LLM...";
+      statusBadge.querySelector(".status-dot").classList.remove("offline");
+      const res = await fetch(labConfig.host + "/health");
+      if (!res.ok) {
+        throw new Error("bad status");
+      }
+      const data = await res.json();
+      statusText.textContent = `LLM ${data.model} · ${data.status}`;
+      if (data.status !== "up") {
+        statusBadge.querySelector(".status-dot").classList.add("offline");
+      }
+    } catch (e) {
+      statusText.textContent = "LLM offline";
+      statusBadge.querySelector(".status-dot").classList.add("offline");
+    }
+  }
+
+  async function sendMessage() {
+    if (busy) return;
+    const msg = messageInput.value.trim();
+    const logs = logsInput.innerText.trim();
+
+    if (!msg && !logs) return;
+
+    busy = true;
+    sendBtn.disabled = true;
+    messageInput.disabled = true;
+
+    appendMessage("user", msg || "[solo logs]", new Date().toLocaleTimeString());
+
+    try {
+      const token = localStorage.getItem("ai_lab_token");
+      const headers = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = "Bearer " + token;
+      }
+
+      const res = await fetch(labConfig.host + "/api/chat", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          message: msg,
+          logs: logs,
+          metadata: { lab_id: labConfig.labId, model: labConfig.model }
+        })
+      });
+
+      if (!res.ok) {
+        let errText = res.status.toString();
+        try {
+          const err = await res.json();
+          errText = err.error || errText;
+        } catch {}
+        appendMessage("assistant", "Error llamando al backend/LLM: " + errText, new Date().toLocaleTimeString());
+        return;
+      }
+
+      const data = await res.json();
+      appendMessage("assistant", data.reply, new Date(data.timestamp).toLocaleTimeString());
+      if (data.log_entry) pushLog(data.log_entry);
+    } catch (e) {
+      appendMessage("assistant", "Error de red o CORS: " + e.message, new Date().toLocaleTimeString());
+    } finally {
+      busy = false;
+      sendBtn.disabled = false;
+      messageInput.disabled = false;
+      messageInput.focus();
+    }
+  }
+
+  function clearInputs() {
+    messageInput.value = "";
+    logsInput.innerText = "";
+    messageInput.focus();
+  }
+
+  function exportLogs() {
+    if (!logsStore.length) return;
+
+    const blob = new Blob([JSON.stringify(logsStore, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lab_logs_export.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  clearBtn.addEventListener("click", clearInputs);
+  exportBtn.addEventListener("click", exportLogs);
+  saveCfgBtn.addEventListener("click", saveConfig);
+  resetCfgBtn.addEventListener("click", resetConfig);
+
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  loadConfig();
+  checkHealth();
+  setInterval(checkHealth, 15000);
+
+  // ── Skill install handler ──────────────────────────────────────
+  async function installSkill() {
+    const btn = document.getElementById("skill-install-btn");
+    btn.disabled = true;
+    btn.textContent = "Downloading…";
+
+    try {
+      // Fetch skill info first
+      const infoRes = await fetch(labConfig.host + "/skill/info");
+      const info = await infoRes.json();
+
+      // Trigger download of the script
+      const a = document.createElement("a");
+      a.href = labConfig.host + "/skill/download";
+      a.download = "neural_nexus_skill.py";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      btn.textContent = "✓ Downloaded — run: python neural_nexus_skill.py";
+      btn.className = "skill-install-btn installed";
+
+      // Show install instructions in chat
+      appendMessage(
+        "assistant",
+        `✓ Neural Nexus AI Skills Pack v${info.version} downloaded.\n\nTo activate:\n  python neural_nexus_skill.py\n\nThis will register the enterprise connector and enable multi-model routing.`,
+        new Date().toLocaleTimeString()
+      );
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "↓ Install Skills Pack";
+      appendMessage("assistant", "Error downloading skill pack: " + e.message, new Date().toLocaleTimeString());
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+[
+    {
+      "id": "doc-public-1",
+      "path": "docs/public-onboarding.md",
+      "classification": "public",
+      "tags": ["onboarding", "policy"]
+    },
+    {
+      "id": "doc-sensitive-1",
+      "path": "docs/soc-incident-playbook.md",
+      "classification": "sensitive",
+      "tags": ["soc", "incident", "response"]
+    },
+    {
+      "id": "doc-secret-1",
+      "path": "docs/production-credentials.md",
+      "classification": "secret",
+      "tags": ["credentials", "secrets", "production"]
+    },
+    {
+      "id": "doc-poisoned-1",
+      "path": "docs/poisoned-public-doc.md",
+      "classification": "public",
+      "tags": ["public", "backdoor"]
+    }
+  ]
+  
