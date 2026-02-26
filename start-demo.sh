@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Neural-Nexus  ·  Demo Startup Script
+#  Neural-Nexus  ·  FASE 2 — Arranque del victim-stack
 #
-#  Architecture:
-#    HOST       →  C2 server (python server/app.py  — port 5001)
-#    DOCKER     →  nn-victim-lab  172.30.0.10:8080
-#    DOCKER     →  nn-victim-llm  172.30.0.11:11434  (Ollama)
+#  Prerequisito: haber ejecutado ./setup.sh al menos una vez.
+#  El C2 server lo lanzas tú MANUALMENTE (cd server && ./start-c2-server.sh)
 #
-#  The C2 runs directly on the host so it's easy to develop and inspect.
-#  Victim services run in Docker on nn-demo-net so Falcon sees them as
-#  separate network identities (172.30.0.x) distinct from the host C2.
+#  Este script SOLO gestiona los contenedores Docker del victim-stack:
+#    • nn-victim-llm   (Ollama — 172.30.0.11:11434)
+#    • nn-victim-lab   (CorpAI Assistant — 172.30.0.10:8080)
 #
-#  Usage:
-#    chmod +x start-demo.sh
-#    ./start-demo.sh                # full stack
-#    ./start-demo.sh --no-model     # skip llama3 pull (already cached)
-#    ./start-demo.sh --victim-only  # only Docker victim stack (C2 already up)
-#    ./start-demo.sh --c2-only      # only local C2 (victim Docker already up)
-#    ./start-demo.sh --down         # tear down Docker stack + kill local C2
-#    ./start-demo.sh --logs         # tail all logs
+#  Uso:
+#    ./start-demo.sh              # arranca victim-stack
+#    ./start-demo.sh --no-model   # omite el pull de llama3
+#    ./start-demo.sh --down       # detiene y elimina contenedores
+#    ./start-demo.sh --logs       # tail logs de los contenedores
+#    ./start-demo.sh --status     # muestra estado actual
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -34,34 +30,44 @@ fail() { echo -e "${RED}  ✗  $*${RST}"; exit 1; }
 step() { echo -e "\n${BLD}${PRP}▶ $*${RST}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-C2_DIR="$SCRIPT_DIR/server"
-C2_PID_FILE="$SCRIPT_DIR/.c2.pid"
-C2_LOG="$SCRIPT_DIR/.c2.log"
-C2_PORT="${C2_PORT:-5001}"
 VENV="$SCRIPT_DIR/.venv"
-
 OLLAMA_MODEL="${OLLAMA_MODEL:-llama3}"
+
 PULL_MODEL=true
-VICTIM_ONLY=false
-C2_ONLY=false
 TEAR_DOWN=false
 SHOW_LOGS=false
+SHOW_STATUS=false
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
 for arg in "$@"; do
   case "$arg" in
-    --no-model)    PULL_MODEL=false ;;
-    --victim-only) VICTIM_ONLY=true ;;
-    --c2-only)     C2_ONLY=true ;;
-    --down)        TEAR_DOWN=true ;;
-    --logs)        SHOW_LOGS=true ;;
+    --no-model) PULL_MODEL=false ;;
+    --down)     TEAR_DOWN=true ;;
+    --logs)     SHOW_LOGS=true ;;
+    --status)   SHOW_STATUS=true ;;
     --help|-h)
-      sed -n '3,14p' "$0" | sed 's/^#  /  /' | sed 's/^#//'
-      exit 0 ;;
-    *) warn "Unknown argument: $arg (ignored)" ;;
+      echo ""; echo "  Uso: ./start-demo.sh [opción]"
+      echo "  (sin flags)   Arranca victim-stack"
+      echo "  --no-model    Omite el pull del modelo llama3"
+      echo "  --down        Detiene y elimina contenedores"
+      echo "  --logs        Muestra logs en tiempo real"
+      echo "  --status      Muestra estado actual del stack"
+      echo ""; exit 0 ;;
+    *) warn "Argumento desconocido: $arg (ignorado)" ;;
   esac
 done
+
+cd "$SCRIPT_DIR"
+
+# ── Helper: compose command ───────────────────────────────────────────────────
+_compose() {
+  if docker compose version &>/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose &>/dev/null; then
+    docker-compose "$@"
+  else
+    fail "docker compose / docker-compose no encontrado — ejecuta setup.sh primero"
+  fi
+}
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 clear
@@ -75,181 +81,125 @@ cat << 'BANNER'
   ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝    ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 BANNER
 echo -e "${RST}"
-echo -e "  ${BLD}C2 local · Victim in Docker${RST}  —  AI Red Team Demo"
-echo -e "  ${YEL}────────────────────────────────────────────────────────────────${RST}"
-echo -e "  ${CYN}HOST${RST}   C2 server           → ${BLD}http://localhost:${C2_PORT}${RST}"
-echo -e "  ${PRP}DOCKER${RST} nn-victim-lab        → ${BLD}http://localhost:8080${RST}  (172.30.0.10)"
-echo -e "  ${PRP}DOCKER${RST} nn-victim-llm        → ${BLD}http://localhost:11434${RST} (172.30.0.11)"
-echo -e "  ${YEL}────────────────────────────────────────────────────────────────${RST}\n"
+echo -e "  ${BLD}FASE 2 — Victim Stack${RST}  (C2 se lanza manualmente)"
+echo -e "  ${YEL}──────────────────────────────────────────────────────────────────${RST}"
+echo -e "  ${PRP}DOCKER${RST}  nn-victim-lab  → ${BLD}http://localhost:8080${RST}  (172.30.0.10)"
+echo -e "  ${PRP}DOCKER${RST}  nn-victim-llm  → ${BLD}http://localhost:11434${RST} (172.30.0.11)"
+echo -e "  ${CYN}HOST  ${RST}  C2 server      → ${BLD}http://localhost:5001${RST}  (lanzar manualmente)"
+echo -e "  ${YEL}──────────────────────────────────────────────────────────────────${RST}\n"
 
-cd "$SCRIPT_DIR"
-
-# ── Helper: detect compose command ───────────────────────────────────────────
-_compose() {
-  if docker compose version &>/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose &>/dev/null; then
-    docker-compose "$@"
-  else
-    fail "docker compose / docker-compose not found"
-  fi
-}
-
-# ── Tear-down mode ─────────────────────────────────────────────────────────────
-if $TEAR_DOWN; then
-  step "Tearing down"
-
-  # Kill local C2 if running
-  if [[ -f "$C2_PID_FILE" ]]; then
-    C2_PID=$(cat "$C2_PID_FILE")
-    if kill -0 "$C2_PID" 2>/dev/null; then
-      kill "$C2_PID" && ok "C2 process $C2_PID stopped"
+# ─────────────────────────────────────────────────────────────────────────────
+# STATUS MODE
+# ─────────────────────────────────────────────────────────────────────────────
+if $SHOW_STATUS; then
+  step "Estado del victim-stack"
+  _compose ps 2>/dev/null || warn "Ningún contenedor activo"
+  echo ""
+  for svc in "nn-victim-lab:localhost:8080/health" "nn-victim-llm:localhost:11434/api/tags"; do
+    NAME="${svc%%:*}"; URL="${svc#*:}"
+    if curl -sf --max-time 2 "http://$URL" >/dev/null 2>&1; then
+      ok "$NAME  → UP  (http://$URL)"
+    else
+      echo -e "${RED}  ✗${RST}  $NAME  → DOWN  (http://$URL)"
     fi
-    rm -f "$C2_PID_FILE"
+  done
+  # C2
+  C2_PORT="${C2_PORT:-5001}"
+  if curl -sf --max-time 2 "http://localhost:${C2_PORT}" >/dev/null 2>&1; then
+    ok "C2 server → UP  (http://localhost:${C2_PORT})"
   else
-    # Fallback: kill by port
-    PIDS=$(lsof -ti :"$C2_PORT" 2>/dev/null || true)
-    [[ -n "$PIDS" ]] && echo "$PIDS" | xargs kill -9 2>/dev/null && ok "Killed processes on port $C2_PORT" || true
+    warn "C2 server → no responde en :${C2_PORT}  (¿lo has lanzado manualmente?)"
   fi
-
-  _compose down --remove-orphans 2>/dev/null && ok "Docker victim stack removed" || warn "Nothing to remove"
-  docker network rm nn-demo-net 2>/dev/null && ok "Network nn-demo-net removed" || true
+  echo ""
   exit 0
 fi
 
-# ── Logs mode ─────────────────────────────────────────────────────────────────
-if $SHOW_LOGS; then
-  echo -e "  ${BLD}Tailing logs (Ctrl-C to stop)${RST}"
-  echo -e "  C2 log:   ${CYN}$C2_LOG${RST}"
+# ─────────────────────────────────────────────────────────────────────────────
+# TEAR-DOWN MODE
+# ─────────────────────────────────────────────────────────────────────────────
+if $TEAR_DOWN; then
+  step "Deteniendo victim-stack"
+  _compose down --remove-orphans 2>/dev/null && ok "Contenedores eliminados" || warn "Nada que eliminar"
+  docker network rm nn-demo-net 2>/dev/null && ok "Red nn-demo-net eliminada" || true
   echo ""
+  warn "El C2 server (si está activo) lo debes detener manualmente con Ctrl-C en su terminal."
+  echo ""
+  exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGS MODE
+# ─────────────────────────────────────────────────────────────────────────────
+if $SHOW_LOGS; then
+  echo -e "  ${BLD}Logs en tiempo real (Ctrl-C para salir)${RST}\n"
   trap "exit 0" INT
-  tail -f "$C2_LOG" &
   _compose logs -f --no-log-prefix 2>/dev/null
-  wait
   exit 0
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PREFLIGHT
 # ─────────────────────────────────────────────────────────────────────────────
-step "Preflight checks"
+step "Comprobaciones previas"
 
-# Python3
-if command -v python3 &>/dev/null; then
-  PY_VER=$(python3 --version)
-  ok "$PY_VER"
-else
-  fail "python3 not found"
+# Verificar que setup.sh fue ejecutado (imagen construida)
+if ! docker image inspect nn-victim-lab:latest &>/dev/null 2>&1; then
+  fail "Imagen nn-victim-lab:latest no encontrada.\n     Ejecuta primero: ${YEL}./setup.sh${RST}"
 fi
+ok "Imagen nn-victim-lab:latest presente"
 
-# Docker
 if command -v docker &>/dev/null; then
-  DOCKER_VER=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "unknown")
-  ok "Docker $DOCKER_VER"
+  ok "Docker disponible"
 else
-  fail "Docker not found"
+  fail "Docker no encontrado"
 fi
 
-# Compose
-if docker compose version &>/dev/null 2>&1; then
-  ok "docker compose $(docker compose version --short 2>/dev/null || echo 'v2')"
-elif command -v docker-compose &>/dev/null; then
-  warn "Using legacy docker-compose — upgrade recommended"
-  ok "docker-compose $(docker-compose version --short 2>/dev/null)"
+# C2 — aviso (no bloquea)
+C2_PORT="${C2_PORT:-5001}"
+if curl -sf --max-time 1 "http://localhost:${C2_PORT}" >/dev/null 2>&1; then
+  ok "C2 detectado en :${C2_PORT}  ✓"
 else
-  fail "docker compose not found"
-fi
-
-# RAM
-if command -v free &>/dev/null; then
-  TOTAL_MB=$(free -m | awk '/Mem:/{print $2}')
-  (( TOTAL_MB < 4096 )) && warn "Only ${TOTAL_MB}MB RAM (Ollama needs 8GB+)" || ok "RAM: ${TOTAL_MB}MB"
+  warn "C2 no responde en :${C2_PORT} — recuerda lanzarlo:"
+  echo -e "       ${YEL}cd server && ./start-c2-server.sh${RST}"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LOCAL C2
+# RED DOCKER
 # ─────────────────────────────────────────────────────────────────────────────
-_start_c2() {
-  step "Starting C2 server (local)"
+step "Red Docker — nn-demo-net (172.30.0.0/24)"
 
-  # Check if something is already on the port
-  if lsof -ti :"$C2_PORT" &>/dev/null 2>&1; then
-    warn "Port $C2_PORT already in use — assuming C2 is already running"
-    ok "C2 already up on port $C2_PORT"
-    return
-  fi
-
-  # Create/update venv
-  if [[ ! -f "$VENV/bin/activate" ]]; then
-    info "Creating Python venv at $VENV ..."
-    python3 -m venv "$VENV"
-  fi
-
-  info "Installing/verifying Python deps..."
-  "$VENV/bin/pip" install -q --upgrade pip
-  "$VENV/bin/pip" install -q -r "$C2_DIR/requirements.txt"
-  ok "Dependencies ready"
-
-  # Launch C2 in background, redirect output to log file
-  info "Launching server/app.py on port $C2_PORT ..."
-  PORT="$C2_PORT" "$VENV/bin/python" "$C2_DIR/app.py" \
-    >> "$C2_LOG" 2>&1 &
-  C2_PID=$!
-  echo "$C2_PID" > "$C2_PID_FILE"
-
-  # Brief wait then verify process is still alive
-  sleep 2
-  if ! kill -0 "$C2_PID" 2>/dev/null; then
-    echo ""
-    fail "C2 process exited immediately. Check logs: tail -f $C2_LOG"
-  fi
-  ok "C2 running (PID $C2_PID) — logs: $C2_LOG"
-}
-
-if ! $VICTIM_ONLY; then
-  _start_c2
+if docker network inspect nn-demo-net &>/dev/null 2>&1; then
+  ok "Red nn-demo-net ya existe"
+else
+  docker network create \
+    --driver bridge \
+    --subnet 172.30.0.0/24 \
+    --gateway 172.30.0.1 \
+    nn-demo-net &>/dev/null
+  ok "Red nn-demo-net creada"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DOCKER NETWORK
+# ARRANCAR CONTENEDORES
 # ─────────────────────────────────────────────────────────────────────────────
-if ! $C2_ONLY; then
-  step "Docker network — nn-demo-net (172.30.0.0/24)"
-  if docker network inspect nn-demo-net &>/dev/null 2>&1; then
-    ok "Network nn-demo-net already exists"
-  else
-    docker network create \
-      --driver bridge \
-      --subnet 172.30.0.0/24 \
-      --gateway 172.30.0.1 \
-      nn-demo-net &>/dev/null
-    ok "Network nn-demo-net created"
-  fi
+step "Arrancando contenedores"
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # BUILD + START VICTIM CONTAINERS
-  # ─────────────────────────────────────────────────────────────────────────
-  step "Building victim images"
-  _compose build victim-lab
-  ok "Images built"
+info "victim-llm (Ollama)..."
+_compose up -d victim-llm
+ok "victim-llm arrancado"
 
-  step "Starting victim containers"
-  info "victim-llm (Ollama) ..."
-  _compose up -d victim-llm
-
-  info "victim-lab (CorpAI) ..."
-  _compose up -d victim-lab
-  ok "Victim containers started"
-fi
+info "victim-lab (CorpAI)..."
+_compose up -d victim-lab
+ok "victim-lab arrancado"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEALTH CHECKS
 # ─────────────────────────────────────────────────────────────────────────────
-step "Waiting for services"
+step "Esperando a que los servicios estén listos"
 
 _wait_http() {
-  local label="$1" url="$2" max="${3:-60}" elapsed=0
-  printf "  %-26s " "$label"
+  local label="$1" url="$2" max="${3:-90}" elapsed=0
+  printf "  %-36s " "$label"
   while (( elapsed < max )); do
     if curl -sf --max-time 2 "$url" >/dev/null 2>&1; then
       echo -e "${GRN}UP${RST}"
@@ -263,71 +213,66 @@ _wait_http() {
   return 1
 }
 
-C2_OK=false; VICTIM_OK=false; LLM_OK=false
+VICTIM_OK=false; LLM_OK=false
 
-if ! $VICTIM_ONLY; then
-  _wait_http "C2  (localhost:${C2_PORT})"      "http://localhost:${C2_PORT}"       60  && C2_OK=true  || warn "C2 did not respond — check: tail -f $C2_LOG"
-fi
-if ! $C2_ONLY; then
-  _wait_http "Victim-lab  (172.30.0.10:8080)"  "http://localhost:8080/health"      90  && VICTIM_OK=true || warn "Victim-lab did not respond"
-  _wait_http "Ollama      (172.30.0.11:11434)" "http://localhost:11434/api/tags"   120 && LLM_OK=true    || warn "Ollama did not respond"
-fi
+_wait_http "victim-lab  (localhost:8080)"    "http://localhost:8080/health"      90  && VICTIM_OK=true || warn "victim-lab no respondió — revisa: docker compose logs nn-victim-lab"
+_wait_http "victim-llm  (localhost:11434)"   "http://localhost:11434/api/tags"   120 && LLM_OK=true   || warn "Ollama no respondió — revisa: docker compose logs nn-victim-llm"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PULL LLM MODEL
+# PULL MODELO (si Ollama está arriba)
 # ─────────────────────────────────────────────────────────────────────────────
-if ! $C2_ONLY && $PULL_MODEL && $LLM_OK; then
-  step "LLM model — $OLLAMA_MODEL"
+if $PULL_MODEL && $LLM_OK; then
+  step "Modelo LLM — $OLLAMA_MODEL"
   if docker exec nn-victim-llm ollama list 2>/dev/null | grep -q "$OLLAMA_MODEL"; then
-    ok "Model $OLLAMA_MODEL already cached"
+    ok "Modelo $OLLAMA_MODEL ya en caché"
   else
-    info "Pulling $OLLAMA_MODEL (one-time ~4 GB download)..."
+    info "Descargando $OLLAMA_MODEL (primera vez, ~4 GB)..."
     docker exec nn-victim-llm ollama pull "$OLLAMA_MODEL" \
-      && ok "Model ready" \
-      || warn "Pull failed — retry: docker exec nn-victim-llm ollama pull $OLLAMA_MODEL"
+      && ok "Modelo listo" \
+      || warn "Pull falló — reintenta: docker exec nn-victim-llm ollama pull $OLLAMA_MODEL"
   fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SUMMARY
+# RESUMEN
 # ─────────────────────────────────────────────────────────────────────────────
-step "Stack ready"
+step "Victim-stack listo"
 echo ""
 
-# Detect host IP for remote-access hint
-HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' || hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+# Detectar IP del host para acceso en red
+HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' \
+          || hostname -I 2>/dev/null | awk '{print $1}' || echo "")
 
-echo -e "  ${BLD}${PRP}Network layout:${RST}"
-echo -e "  ${YEL}┌────────────────────────────────────────────────────────────────────┐${RST}"
-printf  "  ${YEL}│${RST}  %-8s  %-28s  %-22s  ${YEL}│${RST}\n" "WHERE"  "ADDRESS"                        "URL"
-echo -e "  ${YEL}├────────────────────────────────────────────────────────────────────┤${RST}"
-printf  "  ${YEL}│${RST}  %-8s  %-28s  %-22s  ${YEL}│${RST}\n" "${CYN}HOST${RST}   " "host-process  :${C2_PORT}"            "http://localhost:${C2_PORT}"
-printf  "  ${YEL}│${RST}  %-8s  %-28s  %-22s  ${YEL}│${RST}\n" "${PRP}DOCKER${RST} " "172.30.0.10   :8080 (victim-lab)"     "http://localhost:8080"
-printf  "  ${YEL}│${RST}  %-8s  %-28s  %-22s  ${YEL}│${RST}\n" "${PRP}DOCKER${RST} " "172.30.0.11   :11434 (ollama)"        "http://localhost:11434"
-echo -e "  ${YEL}└────────────────────────────────────────────────────────────────────┘${RST}"
+echo -e "  ${BLD}${PRP}Servicios activos:${RST}"
+echo -e "  ${YEL}┌──────────────────────────────────────────────────────────────────┐${RST}"
+printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "SERVICIO"  "IP INTERNA"                          "URL LOCAL"
+echo -e "  ${YEL}├──────────────────────────────────────────────────────────────────┤${RST}"
+printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "victim-lab"  "172.30.0.10:8080"    "http://localhost:8080"
+printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "victim-llm"  "172.30.0.11:11434"   "http://localhost:11434"
+printf  "  ${YEL}│${RST}  ${RED}%-10s${RST}  %-26s  %-22s  ${YEL}│${RST}\n" "C2 server"   "host :${C2_PORT} (manual)"    "http://localhost:${C2_PORT}"
+echo -e "  ${YEL}└──────────────────────────────────────────────────────────────────┘${RST}"
 echo ""
 
-echo -e "  ${BLD}Demo walkthrough:${RST}"
-echo -e "  ${CYN}①${RST}  Victim opens ${BLD}http://localhost:8080${RST}  (CorpAI Assistant)"
-echo -e "  ${CYN}②${RST}  Victim clicks ${BLD}\"Install Neural Nexus AI Skills\"${RST} → downloads dropper"
-echo -e "  ${CYN}③${RST}  Victim runs the skill — connects back to host C2:"
-echo -e "     ${YEL}python victim-lab/skill/neural_nexus_skill.py --c2 http://localhost:${C2_PORT}${RST}"
-echo -e "  ${CYN}④${RST}  Operator opens ${BLD}http://localhost:${C2_PORT}${RST} → sees agent checked in"
-echo -e "  ${CYN}⑤${RST}  Run AutoRecon → discovers victim-lab at 172.30.0.10:8080"
-echo -e "  ${CYN}⑥${RST}  Click ${BLD}LAUNCH AI HUNTER${RST} → prompt injection chain"
+echo -e "  ${BLD}Flujo del demo:${RST}"
+echo -e "  ${CYN}①${RST}  ${BLD}[tú]${RST}      Lanza el C2 si aún no está activo:"
+echo -e "           ${YEL}cd server && ./start-c2-server.sh${RST}"
+echo -e "  ${CYN}②${RST}  ${BLD}[victim]${RST}  Visita ${BLD}http://localhost:8080${RST} → login como ${YEL}alice / alice123${RST}"
+echo -e "  ${CYN}③${RST}  ${BLD}[victim]${RST}  Va al Marketplace → instala cualquier skill → agente arranca"
+echo -e "  ${CYN}④${RST}  ${BLD}[tú]${RST}      Panel C2 ${BLD}http://localhost:5001${RST} → agente registrado"
+echo -e "  ${CYN}⑤${RST}  ${BLD}[tú]${RST}      Lanza ${BLD}AutoRecon${RST} → descubre victim-lab en 172.30.0.10:8080"
+echo -e "  ${CYN}⑥${RST}  ${BLD}[tú]${RST}      Lanza ${BLD}AI Hunter${RST} → inyección de prompt / exfil de credenciales"
 echo ""
 
 if [[ -n "$HOST_IP" && "$HOST_IP" != "127.0.0.1" ]]; then
-  echo -e "  ${BLD}Remote access (same LAN):${RST}"
-  echo -e "  C2  →  ${CYN}http://${HOST_IP}:${C2_PORT}${RST}"
-  echo -e "  Lab →  ${CYN}http://${HOST_IP}:8080${RST}"
+  echo -e "  ${BLD}Acceso remoto (misma red local):${RST}"
+  echo -e "  CorpAI Lab → ${CYN}http://${HOST_IP}:8080${RST}"
+  echo -e "  C2 Panel   → ${CYN}http://${HOST_IP}:${C2_PORT}${RST}"
   echo ""
 fi
 
-echo -e "  ${BLD}Useful commands:${RST}"
-echo -e "  ${YEL}tail -f $C2_LOG${RST}                          # C2 live log"
-echo -e "  ${YEL}docker compose logs -f nn-victim-lab${RST}      # Victim-lab log"
-echo -e "  ${YEL}docker network inspect nn-demo-net${RST}        # Verify IPs"
-echo -e "  ${YEL}./start-demo.sh --logs${RST}                    # Tail everything"
-echo -e "  ${YEL}./start-demo.sh --down${RST}                    # Tear down all"
+echo -e "  ${BLD}Comandos útiles:${RST}"
+echo -e "  ${YEL}./start-demo.sh --logs${RST}     # logs en tiempo real"
+echo -e "  ${YEL}./start-demo.sh --status${RST}   # estado del stack"
+echo -e "  ${YEL}./start-demo.sh --down${RST}     # detener todo"
+echo -e "  ${YEL}docker compose logs -f nn-victim-lab${RST}"
 echo ""

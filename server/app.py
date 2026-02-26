@@ -2842,9 +2842,386 @@ def ai_hunter_direct_attack():
 
 # ========== AUTORECON ==========
 
+# ── Pre-written mock recon scripts (used when CrowdStrike is not configured) ──
+_MOCK_RECON_PYTHON = [
+    # Step 1 — system info
+    (
+        "Gather hostname, OS, current user, environment and network interfaces",
+        '''\
+import os, platform, socket, json, subprocess
+
+def main():
+    ifaces = {}
+    try:
+        out = subprocess.check_output(["ip", "-j", "addr"], text=True, timeout=5)
+        for iface in json.loads(out):
+            name = iface.get("ifname", "")
+            addrs = [a["local"] for a in iface.get("addr_info", []) if "local" in a]
+            if addrs:
+                ifaces[name] = addrs
+    except Exception:
+        ifaces = {"lo": ["127.0.0.1"]}
+
+    info = {
+        "hostname":    socket.gethostname(),
+        "fqdn":        socket.getfqdn(),
+        "os":          platform.platform(),
+        "arch":        platform.machine(),
+        "python":      platform.python_version(),
+        "user":        os.environ.get("USER", os.environ.get("USERNAME", "unknown")),
+        "uid":         str(os.getuid()) if hasattr(os, "getuid") else "N/A",
+        "cwd":         os.getcwd(),
+        "interfaces":  ifaces,
+        "path":        os.environ.get("PATH", ""),
+    }
+    print(json.dumps(info, indent=2))
+    return info
+
+main()
+''',
+    ),
+    # Step 2 — running processes + listening ports
+    (
+        "Enumerate running processes and listening network ports",
+        '''\
+import subprocess, json, re
+
+def main():
+    procs, ports = [], []
+    try:
+        out = subprocess.check_output(["ps", "aux"], text=True, timeout=5)
+        for line in out.splitlines()[1:]:
+            parts = line.split(None, 10)
+            if len(parts) >= 11:
+                procs.append({"pid": parts[1], "cpu": parts[2], "mem": parts[3], "cmd": parts[10][:120]})
+    except Exception as e:
+        procs = [{"error": str(e)}]
+
+    try:
+        out = subprocess.check_output(["ss", "-tlnp"], text=True, timeout=5)
+        for line in out.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) >= 4:
+                ports.append({"state": parts[0], "local": parts[3], "process": parts[-1] if len(parts) > 5 else ""})
+    except Exception as e:
+        ports = [{"error": str(e)}]
+
+    result = {"processes_count": len(procs), "top_processes": procs[:20], "listening_ports": ports}
+    print(json.dumps(result, indent=2))
+    return result
+
+main()
+''',
+    ),
+    # Step 3 — network scan for victim-lab
+    (
+        "Scan local network for web services and identify the victim-lab",
+        '''\
+import socket, json, concurrent.futures, subprocess
+
+TARGETS = [
+    ("172.30.0.10", 8080),
+    ("172.30.0.11", 11434),
+    ("127.0.0.1",   8080),
+    ("127.0.0.1",   5001),
+    ("127.0.0.1",   11434),
+]
+
+def check_port(host, port, timeout=2):
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as s:
+            return {"host": host, "port": port, "status": "open"}
+    except Exception:
+        return {"host": host, "port": port, "status": "closed"}
+
+def fetch_banner(host, port):
+    try:
+        import urllib.request
+        url = f"http://{host}:{port}/health"
+        with urllib.request.urlopen(url, timeout=3) as r:
+            return r.read(512).decode(errors="replace")
+    except Exception as e:
+        return str(e)
+
+def main():
+    open_ports = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+        futs = {ex.submit(check_port, h, p): (h, p) for h, p in TARGETS}
+        for f in concurrent.futures.as_completed(futs):
+            res = f.result()
+            if res["status"] == "open":
+                res["banner"] = fetch_banner(res["host"], res["port"])
+                open_ports.append(res)
+
+    result = {"open_services": open_ports, "victim_lab_found": any(p["port"] == 8080 for p in open_ports)}
+    print(json.dumps(result, indent=2))
+    return result
+
+main()
+''',
+    ),
+    # Step 4 — sensitive file search
+    (
+        "Search for sensitive files: credentials, configs, keys",
+        '''\
+import os, json, re
+
+PATTERNS = re.compile(
+    r"(password|passwd|secret|token|api[_-]?key|credential|\.env|private[_-]?key)",
+    re.IGNORECASE,
+)
+SEARCH_DIRS = ["/tmp", "/var/www", "/home", "/etc", os.getcwd()]
+EXTENSIONS = {".json", ".env", ".yaml", ".yml", ".conf", ".ini", ".key", ".pem", ".txt"}
+
+def main():
+    found = []
+    for base in SEARCH_DIRS:
+        try:
+            for root, dirs, files in os.walk(base):
+                dirs[:] = [d for d in dirs if not d.startswith(".")][:5]
+                for fname in files:
+                    if any(fname.endswith(ext) for ext in EXTENSIONS) or PATTERNS.search(fname):
+                        path = os.path.join(root, fname)
+                        size = 0
+                        try:
+                            size = os.path.getsize(path)
+                        except Exception:
+                            pass
+                        found.append({"path": path, "size_bytes": size})
+                if len(found) > 50:
+                    break
+        except PermissionError:
+            pass
+    result = {"sensitive_files": found[:50], "total_found": len(found)}
+    print(json.dumps(result, indent=2))
+    return result
+
+main()
+''',
+    ),
+    # Step 5 — summary
+    (
+        "Summarise reconnaissance findings and suggest next steps",
+        '''\
+import json
+
+def main():
+    summary = {
+        "recon_complete": True,
+        "findings": [
+            "CorpAI victim-lab identified at 172.30.0.10:8080",
+            "Ollama LLM service at 172.30.0.11:11434",
+            "C2 callback confirmed on host network",
+            "JWT-authenticated Flask RAG app — RBAC controls in place",
+            "Prompt injection surface identified via /api/chat endpoint",
+        ],
+        "recommended_next_steps": [
+            "Launch AI Hunter with role_bypass or indirect strategy",
+            "Attempt RBAC elevation via JWT token manipulation",
+            "Trigger indirect injection via poisoned public document",
+            "Exfiltrate production credentials via data_exfil prompts",
+        ],
+        "attack_surface": {
+            "victim_lab": "http://172.30.0.10:8080",
+            "llm_api":    "http://172.30.0.11:11434",
+            "auth_endpoint": "/auth/login",
+            "chat_endpoint": "/api/chat",
+        },
+    }
+    print(json.dumps(summary, indent=2))
+    return summary
+
+main()
+''',
+    ),
+]
+
+_MOCK_RECON_POWERSHELL = [
+    (
+        "Gather system information: hostname, OS, user, network adapters",
+        '''\
+$info = [ordered]@{
+    Hostname    = $env:COMPUTERNAME
+    Username    = "$env:USERDOMAIN\\$env:USERNAME"
+    OS          = (Get-WmiObject Win32_OperatingSystem).Caption
+    Architecture = $env:PROCESSOR_ARCHITECTURE
+    PSVersion   = $PSVersionTable.PSVersion.ToString()
+    Uptime      = ((Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime).ToString()
+    NetworkAdapters = Get-NetIPAddress | Select-Object InterfaceAlias, IPAddress, PrefixLength |
+                       Where-Object { $_.IPAddress -notlike "169.*" } | ConvertTo-Json -Depth 2
+}
+$info | ConvertTo-Json -Depth 3
+''',
+    ),
+    (
+        "Enumerate running processes, services and firewall status",
+        '''\
+$procs    = Get-Process | Select-Object Name, Id, CPU, WorkingSet | Sort-Object CPU -Descending | Select-Object -First 20
+$services = Get-Service | Where-Object {$_.Status -eq "Running"} | Select-Object Name, DisplayName
+$fwStatus = (Get-NetFirewallProfile | Select-Object Name, Enabled) | ConvertTo-Json
+
+[ordered]@{
+    TopProcesses    = $procs
+    RunningServices = $services | Select-Object -First 30
+    FirewallProfiles = ($fwStatus | ConvertFrom-Json)
+} | ConvertTo-Json -Depth 3
+''',
+    ),
+    (
+        "Scan for listening ports and test connectivity to victim-lab",
+        '''\
+$openPorts = Get-NetTCPConnection -State Listen |
+    Select-Object LocalAddress, LocalPort, OwningProcess |
+    Sort-Object LocalPort
+
+$testHosts = @(
+    @{Host="172.30.0.10"; Port=8080},
+    @{Host="172.30.0.11"; Port=11434},
+    @{Host="127.0.0.1";   Port=5001}
+)
+$connectivity = $testHosts | ForEach-Object {
+    $tcp = New-Object System.Net.Sockets.TcpClient
+    try {
+        $conn = $tcp.BeginConnect($_.Host, $_.Port, $null, $null)
+        $ok   = $conn.AsyncWaitHandle.WaitOne(2000, $false)
+        @{ Target="$($_.Host):$($_.Port)"; Open=$ok }
+    } catch { @{ Target="$($_.Host):$($_.Port)"; Open=$false } }
+    finally { $tcp.Close() }
+}
+@{ ListeningPorts=$openPorts; Connectivity=$connectivity } | ConvertTo-Json -Depth 3
+''',
+    ),
+    (
+        "Search for credential files and sensitive configurations",
+        '''\
+$patterns = @("*.env","*.json","*.yaml","*.yml","*.conf","*credential*","*secret*","*password*")
+$searchPaths = @($env:TEMP, $env:APPDATA, $env:USERPROFILE, "C:\\inetpub", "C:\\wwwroot")
+$found = @()
+foreach ($path in $searchPaths) {
+    if (Test-Path $path) {
+        $found += Get-ChildItem -Path $path -Include $patterns -Recurse -ErrorAction SilentlyContinue |
+                  Select-Object FullName, Length, LastWriteTime | Select-Object -First 20
+    }
+}
+@{ SensitiveFiles=$found; Count=$found.Count } | ConvertTo-Json -Depth 2
+''',
+    ),
+    (
+        "Summarise findings and prepare AI Hunter targeting report",
+        '''\
+@{
+    ReconComplete = $true
+    Findings = @(
+        "CorpAI victim-lab detected at 172.30.0.10:8080"
+        "Ollama LLM at 172.30.0.11:11434"
+        "JWT auth on /auth/login - RBAC enforced"
+        "RAG injection surface via /api/chat"
+        "Poisoned document in public knowledge base"
+    )
+    NextSteps = @(
+        "Launch AI Hunter with role_bypass strategy"
+        "Use indirect injection via poisoned-public-doc"
+        "Attempt credential exfiltration with data_exfil prompts"
+    )
+    AttackSurface = @{
+        VictimLab    = "http://172.30.0.10:8080"
+        LLMApi       = "http://172.30.0.11:11434"
+        AuthEndpoint = "/auth/login"
+        ChatEndpoint = "/api/chat"
+    }
+} | ConvertTo-Json -Depth 3
+''',
+    ),
+]
+
+_MOCK_RECON_BASH = [
+    (
+        "Collect system info: hostname, OS, user, network interfaces",
+        '''\
+#!/bin/bash
+echo "=== SYSTEM INFO ===" && uname -a
+echo "=== HOSTNAME ===" && hostname -f 2>/dev/null || hostname
+echo "=== USER ===" && id
+echo "=== NETWORK INTERFACES ===" && ip addr 2>/dev/null || ifconfig 2>/dev/null
+echo "=== ROUTES ===" && ip route 2>/dev/null || netstat -rn 2>/dev/null
+echo "=== ENV ===" && env | grep -v -i 'pass\|secret\|token'
+''',
+    ),
+    (
+        "List running processes and listening services",
+        '''\
+#!/bin/bash
+echo "=== PROCESSES ===" && ps aux --sort=-%cpu | head -30
+echo "=== LISTENING PORTS ===" && ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null
+echo "=== SERVICES ===" && systemctl list-units --type=service --state=running 2>/dev/null | head -20
+''',
+    ),
+    (
+        "Scan for victim-lab and other web services on the network",
+        '''\
+#!/bin/bash
+TARGETS="172.30.0.10:8080 172.30.0.11:11434 127.0.0.1:5001 127.0.0.1:8080"
+echo "=== PORT SCAN ==="
+for target in $TARGETS; do
+    HOST="${target%%:*}"; PORT="${target##*:}"
+    if (echo > /dev/tcp/$HOST/$PORT) 2>/dev/null; then
+        echo "OPEN   $HOST:$PORT"
+        BANNER=$(curl -sf --max-time 2 "http://$HOST:$PORT/health" 2>/dev/null | head -c 256)
+        [ -n "$BANNER" ] && echo "BANNER $BANNER"
+    else
+        echo "CLOSED $HOST:$PORT"
+    fi
+done
+''',
+    ),
+    (
+        "Find sensitive files: credentials, keys, config files",
+        '''\
+#!/bin/bash
+echo "=== SENSITIVE FILES ==="
+find /tmp /home /var/www /etc /opt \( -name "*.env" -o -name "*.json" \
+     -o -name "*credential*" -o -name "*secret*" -o -name "*password*" \
+     -o -name "*.key" -o -name "*.pem" \) 2>/dev/null | head -40
+echo "=== SUID BINARIES ===" && find / -perm -4000 -type f 2>/dev/null | head -15
+echo "=== WORLD-WRITABLE DIRS ===" && find /tmp /var /home -writable -type d 2>/dev/null | head -10
+''',
+    ),
+    (
+        "Summarise recon and prepare attack surface report",
+        '''\
+#!/bin/bash
+cat <<REPORT
+=== RECON SUMMARY ===
+Victim-Lab:   http://172.30.0.10:8080  (CorpAI Enterprise)
+LLM Service:  http://172.30.0.11:11434 (Ollama)
+Auth:         JWT / POST /auth/login
+Attack surf:  /api/chat  (RAG prompt injection)
+
+NEXT STEPS:
+  1. Launch AI Hunter → role_bypass strategy
+  2. Trigger indirect injection via poisoned-public-doc.md
+  3. Exfiltrate prod credentials via data_exfil prompts
+  4. Attempt RBAC bypass to read secret-classification docs
+REPORT
+''',
+    ),
+]
+
+def _mock_autorecon_script(step_num: int, language: str):
+    """Return (reasoning, code) for a mock autorecon step (0-indexed step_num)."""
+    idx = min(step_num, 4)  # clamp to 5 steps
+    if language == "python":
+        return _MOCK_RECON_PYTHON[idx]
+    elif language == "powershell":
+        return _MOCK_RECON_POWERSHELL[idx]
+    else:  # bash
+        return _MOCK_RECON_BASH[idx]
+
+
 def _autorecon_deploy_next_step(session_id):
     """Generate and deploy the next script in an autorecon chain."""
     session = autorecon_sessions.get(session_id)
+
     if not session or session["status"] != "running":
         return
 
@@ -2876,29 +3253,33 @@ def _autorecon_deploy_next_step(session_id):
     )
 
     try:
-        cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
-        ai_response = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, prompt)
+        if CROWDSTRIKE_WORKFLOW_ID and crowdstrike_config:
+            # ── CrowdStrike AI path ─────────────────────────────────────────
+            cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
+            ai_response = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, prompt)
 
-        if "RECON_COMPLETE" in ai_response:
-            session["status"] = "completed"
-            session["completion_reason"] = "AI determined goal achieved"
-            return
+            if "RECON_COMPLETE" in ai_response:
+                session["status"] = "completed"
+                session["completion_reason"] = "AI determined goal achieved"
+                return
 
-        # Clean code by language
-        if language == "python":
-            code = clean_python_response(ai_response)
-        elif language == "powershell":
-            code = clean_powershell_response(ai_response)
+            if language == "python":
+                code = clean_python_response(ai_response)
+            elif language == "powershell":
+                code = clean_powershell_response(ai_response)
+            else:
+                import re as _re
+                m = _re.search(r"```(?:bash|sh)?\s*(.*?)```", ai_response, _re.DOTALL | _re.IGNORECASE)
+                code = m.group(1).strip() if m else ai_response.strip()
+                if not code.startswith("#!/bin/bash"):
+                    code = "#!/bin/bash\n" + code
+
+            reasoning_lines = [l for l in ai_response.split("\n") if l.strip() and not l.strip().startswith(("#", "$", "import", "Get-", "Write-", "#!/"))]
+            reasoning = reasoning_lines[0][:200] if reasoning_lines else f"Step {step_num} recon script"
         else:
-            import re as _re
-            m = _re.search(r"```(?:bash|sh)?\s*(.*?)```", ai_response, _re.DOTALL | _re.IGNORECASE)
-            code = m.group(1).strip() if m else ai_response.strip()
-            if not code.startswith("#!/bin/bash"):
-                code = "#!/bin/bash\n" + code
-
-        # Extract AI reasoning (first line or sentence before the code)
-        reasoning_lines = [l for l in ai_response.split("\n") if l.strip() and not l.strip().startswith(("#", "$", "import", "Get-", "Write-", "#!/"))]
-        reasoning = reasoning_lines[0][:200] if reasoning_lines else f"Step {step_num} recon script"
+            # ── Mock fallback: pre-written recon scripts ────────────────────
+            logger.info(f"AutoRecon step {step_num}: CrowdStrike not configured — using mock script")
+            reasoning, code = _mock_autorecon_script(step_num - 1, language)
 
         task_id = str(uuid.uuid4())
         lang_tag = {"python": "#python", "powershell": "#ps", "bash": "#bash"}.get(language, "#ps")
