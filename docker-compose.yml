@@ -81,8 +81,6 @@ services:
       - LAB_ID=victim-corp-01
       - JWT_SECRET_KEY=change-this-in-production
       - PORT=8080
-      # Skill dropper points to host C2 via gateway (172.30.0.1) or host.docker.internal
-      - NN_C2=http://host.docker.internal:5001
     volumes:
       - ./victim-lab/frontend:/frontend:ro
       - ./victim-lab/skill:/skill:ro
