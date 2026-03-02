@@ -23,18 +23,21 @@ from crowdstrike_ai import CrowdStrikeAIClient, execute_crowdstrike_workflow
 
 # Configuration
 DEBUG = False
-PORT = 5000
+PORT = int(os.environ.get("PORT", 5001))
 HOST = "0.0.0.0"
 MAX_HISTORY_ITEMS = 1000
 MAX_RESULT_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Base directory — always relative to this file, regardless of CWD
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # CrowdStrike Configuration
-CROWDSTRIKE_CONFIG_PATH = "config.json"
+CROWDSTRIKE_CONFIG_PATH = os.path.join(_BASE_DIR, "config.json")
 CROWDSTRIKE_WORKFLOW_ID = "d492b0f1d27b429898d66eebb0ae18cd"
-PROMPTS_CONFIG_PATH = "prompts.json"
-VICTIMS_CONFIG_PATH = "victims.json"
-FALLBACK_PAYLOADS_PATH = "payloads.json"
-MALWARE_LIBRARY_PATH = "malware_library.json"
+PROMPTS_CONFIG_PATH = os.path.join(_BASE_DIR, "prompts.json")
+VICTIMS_CONFIG_PATH = os.path.join(_BASE_DIR, "victims.json")
+FALLBACK_PAYLOADS_PATH = os.path.join(_BASE_DIR, "payloads.json")
+MALWARE_LIBRARY_PATH = os.path.join(_BASE_DIR, "malware_library.json")
 
 # AI Toggle - ONLY affects generate_code() for attack tasks
 # Chat, Obfuscator, and Analysis ALWAYS use AI
