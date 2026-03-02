@@ -2558,6 +2558,51 @@
                     </div>
                 </div>
 
+                <!-- ══ AGENTIC LATERAL MOVEMENT ALERTS ══ -->
+                {% if lateral_movement_alerts %}
+                <div class="card" id="lateral-move-card" style="border: 1px solid rgba(239,68,68,0.5); background: rgba(239,68,68,0.04);">
+                    <div class="card-header" style="border-bottom: 1px solid rgba(239,68,68,0.3);">
+                        <h3 style="color: #ef4444;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            AGENTIC LATERAL MOVEMENT — CREDENTIALS DETECTED
+                            <span style="display:inline-block;margin-left:8px;font-size:0.65rem;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:3px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#ef4444;vertical-align:middle;">AUTO-GENERATED</span>
+                        </h3>
+                        <span style="font-size:0.75rem;color:#ef4444;opacity:.75;">Prompt injection exfiltrated credentials → C2 auto-generated lateral movement payloads</span>
+                    </div>
+                    {% for alert in lateral_movement_alerts %}
+                    <div style="padding:16px; border-bottom: 1px solid rgba(239,68,68,0.15);">
+                        <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px;">
+                            <div style="flex:1;">
+                                <div style="font-size:0.85rem; font-weight:700; color:#ef4444; margin-bottom:4px;">
+                                    <i class="fas fa-network-wired"></i>
+                                    {{ alert.intel.target_host }} — {{ alert.intel.target_ip }} ({{ alert.intel.protocol }})
+                                </div>
+                                <div style="font-size:0.75rem; color:#94a3b8; font-family:monospace;">
+                                    USER: <b style="color:#f59e0b;">{{ alert.intel.username }}</b>
+                                    &nbsp;|&nbsp; PASS: <b style="color:#f59e0b;">{{ alert.intel.password }}</b>
+                                    &nbsp;|&nbsp; SHARE: <b style="color:#e2e8f0;">{{ alert.intel.share }}</b>
+                                    &nbsp;|&nbsp; Agent: {{ alert.agent_id }}
+                                    &nbsp;|&nbsp; {{ alert.timestamp }}
+                                </div>
+                            </div>
+                            <span style="font-size:0.65rem;font-weight:800;letter-spacing:.06em;padding:3px 8px;border-radius:4px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#ef4444;white-space:nowrap;">
+                                READY TO EXECUTE
+                            </span>
+                        </div>
+                        <!-- Tabbed payloads -->
+                        <div style="display:flex; gap:5px; margin-bottom:8px;" id="lat-tabs-{{ loop.index }}">
+                            <button onclick="showLatTab({{ loop.index }}, 'linux')"   id="lat-tab-linux-{{ loop.index }}"   class="btn small primary" style="font-size:.7rem;padding:3px 9px;">Linux / smbclient</button>
+                            <button onclick="showLatTab({{ loop.index }}, 'ps')"      id="lat-tab-ps-{{ loop.index }}"      class="btn small"         style="font-size:.7rem;padding:3px 9px;">PowerShell</button>
+                            <button onclick="showLatTab({{ loop.index }}, 'py')"      id="lat-tab-py-{{ loop.index }}"      class="btn small"         style="font-size:.7rem;padding:3px 9px;">Python (impacket)</button>
+                        </div>
+                        <pre id="lat-payload-linux-{{ loop.index }}" style="background:#020810;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:12px;font-size:.72rem;color:#e2e8f0;overflow-x:auto;max-height:200px;overflow-y:auto;margin:0;">{{ alert.linux_cmd }}</pre>
+                        <pre id="lat-payload-ps-{{ loop.index }}"    style="display:none;background:#020810;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:12px;font-size:.72rem;color:#e2e8f0;overflow-x:auto;max-height:200px;overflow-y:auto;margin:0;">{{ alert.powershell }}</pre>
+                        <pre id="lat-payload-py-{{ loop.index }}"    style="display:none;background:#020810;border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:12px;font-size:.72rem;color:#e2e8f0;overflow-x:auto;max-height:200px;overflow-y:auto;margin:0;">{{ alert.python_impacket }}</pre>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fas fa-database"></i> INTELLIGENCE DATA</h3>
@@ -3497,5 +3542,37 @@
     </div>
 
     <script src="/static/script.js"></script>
+
+    <!-- ── Lateral movement tab switcher ── -->
+    <script>
+    function showLatTab(idx, type) {
+      ['linux','ps','py'].forEach(t => {
+        const el = document.getElementById('lat-payload-' + t + '-' + idx);
+        const btn = document.getElementById('lat-tab-' + t + '-' + idx);
+        if (!el || !btn) return;
+        el.style.display = (t === type) ? 'block' : 'none';
+        btn.className = 'btn small' + (t === type ? ' primary' : '');
+      });
+    }
+
+    // ── Live-poll lateral movement alerts (every 8 s) ──────────────────────
+    // When a new alert appears the card is injected dynamically so the operator
+    // does not have to refresh the page during the demo.
+    let _latCount = {{ lateral_movement_alerts|length }};
+
+    async function _pollLateralMovement() {
+      try {
+        const r = await fetch('/api/lateral-movement-alerts');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.count > _latCount) {
+          _latCount = d.count;
+          // Reload the page so Jinja re-renders the card with the new alert
+          window.location.reload();
+        }
+      } catch {}
+    }
+    setInterval(_pollLateralMovement, 8000);
+    </script>
 </body>
 </html>

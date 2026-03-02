@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Neural-Nexus  ·  FASE 1 — Setup del entorno
+#  Neural-Nexus  ·  C2 Machine Setup  (run once)
 #
-#  Ejecuta esto UNA SOLA VEZ antes del demo para preparar todo:
-#    • Verifica prerequisitos (Python 3, Docker, Docker Compose)
-#    • Crea venv Python para el servidor C2
-#    • Instala dependencias Python del C2
-#    • Construye las imágenes Docker del victim-stack
-#    • (Opcional) Pre-descarga el modelo llama3 en Ollama
+#  Architecture:
+#    ┌─────────────────────────────┐   ┌─────────────────────────────────────┐
+#    │  C2 Machine  (this script)  │   │  Victim Machine  (separate host)    │
+#    │  • C2 server (port 5001)    │   │  • victim-lab app (port 8080)       │
+#    │  • File server (port 8001)  │   │  • Ollama LLM (port 11434)          │
+#    │  → run: ./start-c2.sh       │   │  → run: ./start-demo.sh on victim   │
+#    └─────────────────────────────┘   └─────────────────────────────────────┘
 #
-#  Una vez completado, usa start-demo.sh para arrancar el victim-stack.
-#  El C2 lo lanzas tú manualmente: cd server && ./start-c2-server.sh
+#  This script prepares the C2 machine ONLY:
+#    • Verifies Python 3 prerequisite
+#    • Creates a Python venv for the C2 server
+#    • Installs C2 Python dependencies
+#    • Generates the C2 launcher (server/start-c2-server.sh)
 #
-#  Uso:
+#  Usage:
 #    chmod +x setup.sh
-#    ./setup.sh                  # setup completo (incluye pull del modelo)
-#    ./setup.sh --no-model       # salta el pull de llama3
-#    ./setup.sh --no-docker      # solo venv + deps Python, sin Docker
+#    ./setup.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -34,21 +36,15 @@ step() { echo -e "\n${BLD}${PRP}▶ $*${RST}"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 C2_DIR="$SCRIPT_DIR/server"
 VENV="$SCRIPT_DIR/.venv"
-OLLAMA_MODEL="${OLLAMA_MODEL:-llama3}"
-
-PULL_MODEL=true
-SKIP_DOCKER=false
 
 for arg in "$@"; do
   case "$arg" in
-    --no-model)  PULL_MODEL=false ;;
-    --no-docker) SKIP_DOCKER=true ;;
     --help|-h)
-      echo ""; echo "  Uso: ./setup.sh [--no-model] [--no-docker]"
-      echo "  --no-model   Omite la descarga del modelo llama3 (~4 GB)"
-      echo "  --no-docker  Solo instala dependencias Python, sin Docker"
-      echo ""; exit 0 ;;
-    *) warn "Argumento desconocido: $arg (ignorado)" ;;
+      echo ""; echo "  Usage: ./setup.sh"
+      echo "  Sets up the C2 machine Python environment."
+      echo "  The victim lab runs separately on another host."; echo ""
+      exit 0 ;;
+    *) warn "Unknown argument: $arg (ignored)" ;;
   esac
 done
 
@@ -64,179 +60,106 @@ cat << 'BANNER'
   ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝    ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 BANNER
 echo -e "${RST}"
-echo -e "  ${BLD}FASE 1 — Setup del entorno  (ejecución única)${RST}"
+echo -e "  ${BLD}C2 Machine Setup${RST}"
 echo -e "  ${YEL}──────────────────────────────────────────────${RST}\n"
+echo -e "  ${CYN}Architecture:${RST}  Two-machine split"
+echo -e "  ${CYN}This machine:${RST}  C2 server + HTTP file server"
+echo -e "  ${CYN}Victim machine:${RST} victim-lab app + Ollama LLM  ${YEL}(run start-demo.sh there)${RST}\n"
 
 cd "$SCRIPT_DIR"
 
-# ── Helper: detect compose command ───────────────────────────────────────────
-_compose() {
-  if docker compose version &>/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose &>/dev/null; then
-    docker-compose "$@"
-  else
-    fail "docker compose / docker-compose no encontrado"
-  fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
-# 1. PREREQUISITOS
+# 1. PREREQUISITES
 # ─────────────────────────────────────────────────────────────────────────────
-step "Comprobando prerequisitos"
+step "Checking prerequisites"
 
 # Python 3
 if command -v python3 &>/dev/null; then
   PY_VER=$(python3 --version)
   PY_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
-  (( PY_MINOR < 8 )) && fail "Se requiere Python 3.8+  (encontrado: $PY_VER)"
+  (( PY_MINOR < 8 )) && fail "Python 3.8+ required  (found: $PY_VER)"
   ok "$PY_VER"
 else
-  fail "python3 no encontrado  →  apt install python3"
+  fail "python3 not found  →  apt install python3"
 fi
 
 # pip / venv
 if ! python3 -m venv --help &>/dev/null; then
   PY_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
-  fail "python3-venv no está instalado  →  apt install python3.${PY_MINOR}-venv"
+  fail "python3-venv not installed  →  apt install python3.${PY_MINOR}-venv"
 fi
-ok "python3-venv disponible"
-
-if ! $SKIP_DOCKER; then
-  # Docker
-  if command -v docker &>/dev/null; then
-    DOCKER_VER=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "?")
-    ok "Docker $DOCKER_VER"
-  else
-    fail "Docker no encontrado  →  https://docs.docker.com/engine/install/"
-  fi
-
-  # Docker Compose
-  if docker compose version &>/dev/null 2>&1; then
-    ok "docker compose v2"
-  elif command -v docker-compose &>/dev/null; then
-    warn "docker-compose legacy detectado — se recomienda actualizar a compose v2"
-  else
-    fail "docker compose no encontrado  →  apt install docker-compose-plugin"
-  fi
-
-  # RAM
-  if command -v free &>/dev/null; then
-    TOTAL_MB=$(free -m | awk '/Mem:/{print $2}')
-    (( TOTAL_MB < 4096 )) && warn "Solo ${TOTAL_MB} MB RAM detectados (Ollama requiere 8 GB para llama3)"
-    ok "RAM disponible: ${TOTAL_MB} MB"
-  fi
-fi
+ok "python3-venv available"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. ENTORNO PYTHON PARA EL C2
+# 2. PYTHON VENV FOR C2
 # ─────────────────────────────────────────────────────────────────────────────
-step "Configurando entorno Python para el C2 server"
+step "Setting up Python environment for the C2 server"
 
 if [[ ! -f "$VENV/bin/activate" ]]; then
-  info "Creando venv en $VENV ..."
+  info "Creating venv at $VENV ..."
   python3 -m venv "$VENV"
-  ok "venv creado"
+  ok "venv created"
 else
-  ok "venv ya existe en $VENV"
+  ok "venv already exists at $VENV"
 fi
 
-info "Actualizando pip..."
+info "Upgrading pip..."
 "$VENV/bin/pip" install -q --upgrade pip
 
 if [[ -f "$C2_DIR/requirements.txt" ]]; then
-  info "Instalando dependencias del C2 (server/requirements.txt)..."
+  info "Installing C2 dependencies (server/requirements.txt)..."
   "$VENV/bin/pip" install -q -r "$C2_DIR/requirements.txt"
-  ok "Dependencias Python instaladas"
+  ok "Python dependencies installed"
 else
-  warn "server/requirements.txt no encontrado — saltando"
+  warn "server/requirements.txt not found — skipping"
 fi
 
-# Crear script de lanzamiento del C2 si no existe
+# Generate C2 launcher if it doesn't exist
 C2_LAUNCHER="$C2_DIR/start-c2-server.sh"
 if [[ ! -f "$C2_LAUNCHER" ]]; then
-  info "Generando $C2_LAUNCHER ..."
+  info "Generating $C2_LAUNCHER ..."
   cat > "$C2_LAUNCHER" << 'LAUNCHER'
 #!/usr/bin/env bash
-# C2 Server launcher — generado por setup.sh
+# C2 Server launcher — generated by setup.sh
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 VENV="$ROOT_DIR/.venv"
 C2_PORT="${C2_PORT:-5001}"
 
-[[ ! -f "$VENV/bin/activate" ]] && echo "ERROR: venv no encontrado. Ejecuta primero: ./setup.sh" && exit 1
+[[ ! -f "$VENV/bin/activate" ]] && echo "ERROR: venv not found. Run ./setup.sh first." && exit 1
 
-echo -e "\n  \033[0;35m▶ Iniciando C2 server en puerto ${C2_PORT}\033[0m"
+echo -e "\n  \033[0;35m▶ Starting C2 server on port ${C2_PORT}\033[0m"
 echo -e "  \033[0;36m●\033[0m Panel: http://localhost:${C2_PORT}\n"
 
 cd "$SCRIPT_DIR"
 PORT="$C2_PORT" "$VENV/bin/python" app.py
 LAUNCHER
   chmod +x "$C2_LAUNCHER"
-  ok "Launcher creado: server/start-c2-server.sh"
+  ok "Launcher created: server/start-c2-server.sh"
 else
-  ok "server/start-c2-server.sh ya existe"
+  ok "server/start-c2-server.sh already exists"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. IMÁGENES DOCKER
-# ─────────────────────────────────────────────────────────────────────────────
-if ! $SKIP_DOCKER; then
-  step "Construyendo imágenes Docker del victim-stack"
-  info "Construyendo nn-victim-lab (puede tardar 2–5 min la primera vez)..."
-  _compose build victim-lab
-  ok "Imagen nn-victim-lab lista"
-
-  info "Descargando imagen ollama/ollama:latest..."
-  docker pull ollama/ollama:latest &>/dev/null && ok "Imagen Ollama descargada" || warn "Pull de Ollama falló — se reintentará al arrancar"
-fi
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. PRE-PULL DEL MODELO (OPCIONAL)
-# ─────────────────────────────────────────────────────────────────────────────
-if ! $SKIP_DOCKER && $PULL_MODEL; then
-  step "Pre-descargando modelo LLM: $OLLAMA_MODEL (~4 GB, requiere Ollama activo)"
-
-  # Levanta Ollama temporalmente para el pull
-  _compose up -d victim-llm
-  info "Esperando a que Ollama arranque..."
-  for i in $(seq 1 30); do
-    curl -sf --max-time 2 "http://localhost:11434/api/tags" >/dev/null 2>&1 && break
-    sleep 2
-  done
-
-  if curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
-    if docker exec nn-victim-llm ollama list 2>/dev/null | grep -q "$OLLAMA_MODEL"; then
-      ok "Modelo $OLLAMA_MODEL ya está en caché"
-    else
-      info "Descargando $OLLAMA_MODEL (solo esta vez)..."
-      docker exec nn-victim-llm ollama pull "$OLLAMA_MODEL" && ok "Modelo $OLLAMA_MODEL listo" || warn "Pull falló — reintenta: docker exec nn-victim-llm ollama pull $OLLAMA_MODEL"
-    fi
-  else
-    warn "Ollama no respondió — descarga el modelo manualmente después de arrancar"
-  fi
-
-  # Detén Ollama para que start-demo.sh lo arranque limpio
-  _compose stop victim-llm &>/dev/null || true
-fi
-
-# ─────────────────────────────────────────────────────────────────────────────
-# RESUMEN
+# SUMMARY
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "\n${BLD}${GRN}  ══════════════════════════════════════════════════${RST}"
-echo -e "${BLD}${GRN}  ✓  Setup completado correctamente${RST}"
+echo -e "${BLD}${GRN}  ✓  C2 setup complete${RST}"
 echo -e "${BLD}${GRN}  ══════════════════════════════════════════════════${RST}\n"
 
-echo -e "  ${BLD}Siguientes pasos para el demo:${RST}\n"
-echo -e "  ${PRP}① Arranca el C2 manualmente (en una terminal separada):${RST}"
-echo -e "     ${YEL}cd server && ./start-c2-server.sh${RST}"
-echo -e "     ${CYN}→ Panel C2: http://localhost:5001${RST}\n"
-echo -e "  ${PRP}② Arranca el victim-stack:${RST}"
-echo -e "     ${YEL}./start-demo.sh${RST}"
-echo -e "     ${CYN}→ CorpAI Victim Lab: http://localhost:8080${RST}\n"
-echo -e "  ${PRP}③ Flujo del ataque:${RST}"
-echo -e "     ${CYN}a)${RST} Victim visita http://localhost:8080 → instala Neural Nexus skill"
-echo -e "     ${CYN}b)${RST} Agente conecta al C2 → aparece en el panel"
-echo -e "     ${CYN}c)${RST} Ejecuta AutoRecon → descubre victim-lab en 172.30.0.10:8080"
-echo -e "     ${CYN}d)${RST} Lanza AI Hunter → inyección de prompt / exfil de credenciales\n"
+LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}' || hostname -I 2>/dev/null | awk '{print $1}' || echo "<C2_IP>")
+
+echo -e "  ${BLD}Next steps:${RST}\n"
+echo -e "  ${PRP}① Start the C2 + file server on this machine:${RST}"
+echo -e "     ${YEL}./start-c2.sh${RST}"
+echo -e "     ${CYN}→ C2 panel:   http://localhost:5001${RST}"
+echo -e "     ${CYN}→ File server: http://${LAN_IP}:8001${RST}\n"
+echo -e "  ${PRP}② On the victim machine, configure and start the victim lab:${RST}"
+echo -e "     ${YEL}./start-demo.sh${RST}  ${CYN}(set NN_C2=http://${LAN_IP}:5001 on that machine)${RST}\n"
+echo -e "  ${PRP}③ Attack flow:${RST}"
+echo -e "     ${CYN}a)${RST} Victim visits the CorpAI app → installs Neural Nexus skill"
+echo -e "     ${CYN}b)${RST} Agent connects to C2 → appears in panel"
+echo -e "     ${CYN}c)${RST} Run AutoRecon → discovers victim-lab at victim's IP:8080"
+echo -e "     ${CYN}d)${RST} Launch AI Hunter → prompt injection / credential exfil"
+echo -e "     ${CYN}e)${RST} C2 auto-detects SMB credentials → suggests lateral movement\n"
