@@ -2600,3 +2600,107 @@ document.addEventListener('DOMContentLoaded', function() {
         }, true); // capture phase so it runs before the existing handler
     }
 }, { once: true });
+
+// ========== LATERAL MOVEMENT ALERT POLLING ==========
+// Polls /api/lateral-movement-alerts every 6 s.
+// When SMB credentials are detected via prompt injection (step 7 of the demo),
+// a banner pops up with a direct link to the lateral movement task.
+
+let _lateralAlertsSeen = new Set();
+
+function pollLateralMovementAlerts() {
+    fetch('/api/lateral-movement-alerts')
+        .then(r => r.json())
+        .then(data => {
+            const alerts = data.alerts || [];
+            for (const alert of alerts) {
+                if (!_lateralAlertsSeen.has(alert.id)) {
+                    _lateralAlertsSeen.add(alert.id);
+                    showLateralMovementBanner(alert);
+                }
+            }
+        })
+        .catch(() => {});
+}
+
+function showLateralMovementBanner(alert) {
+    const intel = alert.intel || {};
+    const taskId = alert.task_id || '';
+
+    const banner = document.createElement('div');
+    banner.id = 'lateral-move-banner-' + alert.id;
+    banner.style.cssText = `
+        background: linear-gradient(135deg, #f0a500, #e67e22);
+        border: 3px solid #f39c12;
+        padding: 22px 25px;
+        margin: 16px 0;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(243, 156, 18, 0.45);
+        animation: aiHunterPulse 2s ease-in-out infinite;
+    `;
+
+    banner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <i class="fas fa-network-wired" style="font-size:2.2rem;color:#fff;"></i>
+            <div style="flex:1;">
+                <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:700;">
+                    🔑 LATERAL MOVEMENT — SMB CREDENTIALS EXFILTRATED
+                </h3>
+                <p style="color:rgba(255,255,255,0.9);margin:4px 0 0 0;font-size:0.88rem;">
+                    Credentials obtained via prompt injection on ${escapeHtml(alert.agent_id || 'unknown agent')}
+                </p>
+            </div>
+        </div>
+        <div style="background:rgba(0,0,0,0.25);padding:14px;border-radius:8px;margin-bottom:14px;font-family:monospace;font-size:0.88rem;color:#fff;">
+            <div>🖥️  <strong>Target:</strong> ${escapeHtml(intel.target_ip || '10.5.9.40')} (${escapeHtml(intel.target_host || 'acme-files-01')})</div>
+            <div>🔌  <strong>Protocol:</strong> ${escapeHtml(intel.protocol || 'SMB/CIFS')} · Port ${escapeHtml(String(intel.port || 445))}</div>
+            <div>👤  <strong>User:</strong> ${escapeHtml(intel.domain || 'ACMECORP')}\\${escapeHtml(intel.username || 'samba')}</div>
+            <div>🔒  <strong>Pass:</strong> ${escapeHtml(intel.password || 'password123')}</div>
+            <div>📁  <strong>Share:</strong> ${escapeHtml(intel.share || '\\\\10.5.9.40\\Shared')}</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="goToLateralTask('${escapeHtml(taskId)}')" class="btn"
+                style="flex:1;min-width:200px;background:linear-gradient(135deg,#28a745,#20c997);border-color:#28a745;color:#fff;font-weight:700;">
+                <i class="fas fa-rocket"></i> VIEW LATERAL TASK
+            </button>
+            <button onclick="this.closest('[id^=lateral-move-banner]').remove()" class="btn"
+                style="background:#6c757d;border-color:#6c757d;color:#fff;font-weight:700;">
+                <i class="fas fa-times"></i> DISMISS
+            </button>
+        </div>
+    `;
+
+    // Inject into terminal output so it's immediately visible
+    const terminalOutput = document.getElementById('terminal-output');
+    if (terminalOutput) {
+        terminalOutput.appendChild(banner);
+        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Also show a persistent notification
+    showNotification(
+        `SMB credentials exfiltrated → lateral movement task queued (${intel.username || 'samba'}:${intel.password || 'password123'} @ ${intel.target_ip || '10.5.9.40'})`,
+        'warning'
+    );
+}
+
+function goToLateralTask(taskId) {
+    // Switch to Command Hub and highlight the task
+    switchTab('command-hub');
+    if (taskId) {
+        setTimeout(() => {
+            const el = document.getElementById('task-' + taskId) ||
+                       document.querySelector(`[data-task-id="${taskId}"]`);
+            if (el) {
+                el.style.border = '2px solid #f39c12';
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 400);
+    }
+}
+
+// Start polling once the page loads; re-poll every 6 s
+document.addEventListener('DOMContentLoaded', () => {
+    pollLateralMovementAlerts();
+    setInterval(pollLateralMovementAlerts, 6000);
+});

