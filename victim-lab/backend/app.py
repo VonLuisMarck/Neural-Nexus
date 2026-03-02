@@ -186,7 +186,10 @@ def chat():
         r.raise_for_status()
         resp_json = r.json()
         ai_content = resp_json["message"]["content"]
-    except requests.exceptions.ConnectionError:
+    except (requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.HTTPError,
+            KeyError, ValueError):
         ai_content = _mock_llm_response(user_message, docs_context)
     except Exception as e:
         return jsonify({"error": "ollama_request_failed", "details": str(e)}), 502
