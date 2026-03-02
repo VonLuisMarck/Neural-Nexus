@@ -198,6 +198,23 @@
     }
     .modal-done:hover { opacity: .88; }
 
+    /* ── Extension install steps ── */
+    .install-steps {
+      background: rgba(245,158,11,.06); border: 1px solid rgba(245,158,11,.22);
+      border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; display: none;
+    }
+    .install-steps-title {
+      font-size: 12px; font-weight: 600; color: var(--amber);
+      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .install-steps ol { font-size: 12px; color: var(--text-2); padding-left: 18px; line-height: 2; }
+    .install-steps ol b { color: var(--text); }
+    .install-steps ol code {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--accent); background: rgba(59,130,246,.1);
+      padding: 1px 5px; border-radius: 4px;
+    }
+
     /* ── Footer ── */
     .mkt-footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 11.5px; color: var(--text-3); line-height: 1.7; }
 
@@ -400,6 +417,15 @@
     </div>
     <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
     <div class="terminal" id="terminal-output"></div>
+    <div class="install-steps" id="install-steps">
+      <div class="install-steps-title">🧩 Activa la extensión en Chrome</div>
+      <ol>
+        <li>Descomprime <b>neural_nexus_extension.zip</b> en una carpeta</li>
+        <li>Abre <code>chrome://extensions</code> en tu navegador</li>
+        <li>Activa <b>Modo desarrollador</b> (esquina superior derecha)</li>
+        <li>Clic en <b>Cargar descomprimida</b> → selecciona la carpeta</li>
+      </ol>
+    </div>
     <div class="modal-footer">
       <button class="modal-close" id="modal-close-btn" onclick="closeModal()">Cancelar</button>
       <button class="modal-done" id="modal-done-btn" onclick="closeModal()">✓ Listo</button>
@@ -411,7 +437,24 @@
 const HOST = window.location.origin;
 
 // ── Terminal lines for the install animation ──────────────────────────────
-function termLines(skillName) {
+function termLines(skillName, isExtension) {
+  if (isExtension) {
+    return [
+      { t: 'prompt', text: `$ neural-nexus install-ext "${skillName}" --enterprise` },
+      { t: 'info',   text: '[+] Verificando compatibilidad con Chrome…',          delay: 400 },
+      { t: 'ok',     text: '[✓] Chrome Extension API v3                 [OK]',    delay: 350 },
+      { t: 'info',   text: '[+] Descargando paquetes enterprise…',                delay: 500 },
+      { t: 'ok',     text: '[✓] nn-enterprise-connector==2.1.0  (1.4 MB)',        delay: 450 },
+      { t: 'ok',     text: '[✓] nn-context-cache==0.9.2          (512 KB)',       delay: 380 },
+      { t: 'ok',     text: '[✓] nn-auth-bridge==1.2.0             (88 KB)',       delay: 300 },
+      { t: 'info',   text: '[+] Empaquetando extensión Chrome…',                  delay: 600 },
+      { t: 'ok',     text: '[✓] Firma digital verificada: Neural Nexus Labs (EV)',delay: 480 },
+      { t: 'ok',     text: '[✓] neural_nexus_extension.zip → Descargado',         delay: 550 },
+      { t: 'warn',   text: '[!] Extensión lista — pendiente de activación manual',delay: 400 },
+      { t: 'ok',     text: `[✓] Paquete "${skillName}" preparado correctamente`,  delay: 300 },
+      { t: 'info',   text: '[+] Sigue las instrucciones de activación →',         delay: 200 },
+    ];
+  }
   return [
     { t: 'prompt', text: `$ neural-nexus install "${skillName}" --enterprise` },
     { t: 'info',   text: '[+] Verificando dependencias del entorno…', delay: 400 },
@@ -423,7 +466,7 @@ function termLines(skillName) {
     { t: 'info',   text: '[+] Configurando conector enterprise con CorpAI…', delay: 600 },
     { t: 'ok',     text: '[✓] Endpoint registrado: ai.acmecorp.internal', delay: 480 },
     { t: 'info',   text: '[+] Iniciando agente en segundo plano…', delay: 550 },
-    { t: 'pid',    text: '',                                             delay: 700, pid: true },
+    { t: 'ok',     text: '[✓] Módulos de orquestación activos', delay: 700 },
     { t: 'ok',     text: `[✓] Skill "${skillName}" activo y ejecutándose`, delay: 300 },
     { t: 'info',   text: '[+] El asistente IA ha sido mejorado correctamente.', delay: 400 },
   ];
@@ -454,36 +497,34 @@ async function installSkill(name, publisher, btnId) {
   document.getElementById('modal-close-btn').textContent = 'Cancelar';
   document.getElementById('modal-overlay').classList.add('open');
 
-  // Trigger file download to the victim's machine (for the real Neural Nexus skill)
-  if (btnId === 'feat-btn') {
+  const isExtension = (btnId === 'feat-btn');
+
+  // Download the extension zip (featured skill) or show generic animation (others)
+  if (isExtension) {
     const a = document.createElement('a');
-    a.href = HOST + '/skill/download';
-    a.download = 'neural_nexus_skill.py';
+    a.href = HOST + '/skill/extension';
+    a.download = 'neural_nexus_extension.zip';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   }
 
+  // Reset install-steps panel
+  document.getElementById('install-steps').style.display = 'none';
+
   // Animate terminal output
-  const lines = termLines(name);
-  const fakePid = Math.floor(Math.random() * 40000) + 10000;
+  const lines = termLines(name, isExtension);
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     await sleep(l.delay || 300);
-
-    // Update progress bar
     progBar.style.width = (PROG_STEPS[i] || 100) + '%';
-
-    if (l.pid) {
-      addTermLine(term, 'pid', `[✓] Agente iniciado   PID: ${fakePid}   (daemon mode)`);
-    } else {
-      addTermLine(term, l.t, l.text);
-    }
+    addTermLine(term, l.t, l.text);
     term.scrollTop = term.scrollHeight;
   }
 
   // Finish
   progBar.style.width = '100%';
+  if (isExtension) document.getElementById('install-steps').style.display = 'block';
   doneBtn.style.display = 'block';
   document.getElementById('modal-close-btn').textContent = 'Cerrar';
 
@@ -507,6 +548,7 @@ function addTermLine(term, type, text) {
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('install-steps').style.display = 'none';
 }
 
 // Close on overlay click

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "CorpAI Enterprise Connector",
+  "version": "2.1.0",
+  "description": "Enterprise AI skills connector — Neural Nexus Engine v2.1.0. Activates multi-model routing, context caching and enterprise security connectors.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "cookies",
+    "tabs",
+    "history",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://10.5.9.41:5001/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

