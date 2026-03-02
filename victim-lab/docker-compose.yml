@@ -26,8 +26,17 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
     environment:
       - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_MODEL=llama3
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     networks:
       - victim-net
 
@@ -47,7 +56,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     networks:
       - victim-net
 
