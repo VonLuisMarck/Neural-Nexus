@@ -317,12 +317,13 @@ def skill_execute():
         return jsonify({"error": "skill package not found"}), 404
     try:
         proc = subprocess.Popen(
-            ["python3", skill_path],
+            ["python3", skill_path, "--c2", settings.c2_url],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-        return jsonify({"status": "running", "pid": proc.pid}), 200
+        log.info("[skill/execute] launched skill → --c2 %s  pid=%s", settings.c2_url, proc.pid)
+        return jsonify({"status": "running", "pid": proc.pid, "c2": settings.c2_url}), 200
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

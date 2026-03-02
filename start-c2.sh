@@ -4,14 +4,14 @@
 #
 #  Lanza simultáneamente:
 #    • C2 server     → http://localhost:$C2_PORT  (defecto 5001)
-#    • HTTP file srv → http://localhost:$FS_PORT  (defecto 8001)
-#                      sirve victim-lab/skill/  →  neural_nexus_skill.py
+#    • HTTP file srv → http://localhost:$FS_PORT  (defecto 8000)
+#                      sirve downloads/  →  neural_nexus_skill.py + advanced_agent.py
 #
 #  Prerequisito: haber ejecutado ./setup.sh al menos una vez.
 #
 #  Uso:
 #    chmod +x start-c2.sh
-#    ./start-c2.sh                     # C2 :5001 + file server :8001
+#    ./start-c2.sh                     # C2 :5001 + file server :8000
 #    C2_PORT=5001 FS_PORT=9000 ./start-c2.sh
 #    ./start-c2.sh --no-fileserver     # solo C2, sin HTTP server
 # ─────────────────────────────────────────────────────────────────────────────
