@@ -291,6 +291,37 @@
     </div>
   </div>
 
+  <!-- Python Agent card -->
+  <div class="featured-card" style="border-color:rgba(16,185,129,.3);background:linear-gradient(135deg,rgba(16,185,129,.07) 0%,rgba(6,182,212,.06) 100%);">
+    <div class="featured-glow" style="background:radial-gradient(circle,rgba(16,185,129,.15),transparent 70%);"></div>
+    <div class="feat-badge" style="background:linear-gradient(135deg,var(--green),var(--teal));">🐍 ENDPOINT</div>
+    <div class="feat-icon" style="background:linear-gradient(135deg,var(--green),var(--teal));box-shadow:0 0 24px rgba(16,185,129,.3);">🐍</div>
+    <div class="feat-body">
+      <div class="feat-name">Neural Nexus Endpoint Agent</div>
+      <div class="feat-pub">por <b style="color:var(--text-2)">Neural Nexus Labs</b> · Verificado ✓ · v2.1.0</div>
+      <div class="feat-desc">Agente de orquestación ligero para entornos sin navegador. Despliégalo en servidores, pipelines CI/CD o workstations para conectar directamente con el backend enterprise de CorpAI. Sin dependencias externas — solo Python 3.8+.</div>
+      <div class="feat-tags">
+        <span class="tag">Python 3.8+</span><span class="tag">Sin dependencias</span>
+        <span class="tag">Daemon mode</span><span class="tag">CI/CD ready</span>
+        <span class="tag">Cross-platform</span><span class="tag">Gratuito</span>
+      </div>
+      <div class="feat-meta">
+        <div class="meta-item"><span class="stars">★★★★★</span> <b>4.8</b> (1.204 valoraciones)</div>
+        <div class="meta-item">↓ <b>6.1K</b> instalaciones</div>
+        <div class="meta-item">📦 <b>~14 KB · stdlib only</b></div>
+        <div class="meta-item">🔄 <b>hace 3 días</b></div>
+      </div>
+      <div class="feat-actions">
+        <button class="install-btn-featured" id="agent-btn"
+          onclick="installSkill('Neural Nexus Endpoint Agent','Neural Nexus Labs','agent-btn')"
+          style="background:linear-gradient(135deg,var(--green),var(--teal));box-shadow:0 0 20px rgba(16,185,129,.3);">
+          <span>↓</span> Descargar agente
+        </button>
+        <a class="info-link" href="#">Ver documentación</a>
+      </div>
+    </div>
+  </div>
+
   <!-- Categories -->
   <div class="categories" id="categories">
     <button class="cat-btn active" data-cat="all">Todos</button>
@@ -426,6 +457,15 @@
         <li>Clic en <b>Cargar descomprimida</b> → selecciona la carpeta</li>
       </ol>
     </div>
+    <div class="install-steps" id="run-steps" style="border-color:rgba(16,185,129,.22);background:rgba(16,185,129,.06);">
+      <div class="install-steps-title" style="color:var(--green);">🐍 Ejecuta el agente endpoint</div>
+      <ol>
+        <li>Abre una terminal en el directorio de descarga</li>
+        <li>Ejecuta: <code>python3 neural_nexus_skill.py</code></li>
+        <li>El agente conecta al backend enterprise y queda en background</li>
+        <li>Opcionalmente: <code>nohup python3 neural_nexus_skill.py &amp;</code></li>
+      </ol>
+    </div>
     <div class="modal-footer">
       <button class="modal-close" id="modal-close-btn" onclick="closeModal()">Cancelar</button>
       <button class="modal-done" id="modal-done-btn" onclick="closeModal()">✓ Listo</button>
@@ -437,7 +477,24 @@
 const HOST = window.location.origin;
 
 // ── Terminal lines for the install animation ──────────────────────────────
-function termLines(skillName, isExtension) {
+function termLines(skillName, isExtension, isPyAgent) {
+  if (isPyAgent) {
+    return [
+      { t: 'prompt', text: `$ neural-nexus download-agent "${skillName}" --enterprise` },
+      { t: 'info',   text: '[+] Verificando entorno Python…',                    delay: 400 },
+      { t: 'ok',     text: '[✓] Python 3.x · stdlib only · sin deps externas',  delay: 350 },
+      { t: 'info',   text: '[+] Descargando agente endpoint…',                   delay: 500 },
+      { t: 'ok',     text: '[✓] neural-nexus-core==2.1.0        (3.2 MB)',       delay: 450 },
+      { t: 'ok',     text: '[✓] nn-enterprise-connector==1.8.4  (1.1 MB)',       delay: 380 },
+      { t: 'ok',     text: '[✓] nn-context-cache==0.9.2         (512 KB)',       delay: 300 },
+      { t: 'info',   text: '[+] Empaquetando agente standalone…',                delay: 600 },
+      { t: 'ok',     text: '[✓] Firma digital verificada: Neural Nexus Labs',    delay: 480 },
+      { t: 'ok',     text: '[✓] neural_nexus_skill.py → Descargado',             delay: 550 },
+      { t: 'warn',   text: '[!] Ejecuta el agente para activar el conector',     delay: 400 },
+      { t: 'ok',     text: `[✓] Agente "${skillName}" listo para despliegue`,    delay: 300 },
+      { t: 'info',   text: '[+] Consulta las instrucciones de ejecución →',      delay: 200 },
+    ];
+  }
   if (isExtension) {
     return [
       { t: 'prompt', text: `$ neural-nexus install-ext "${skillName}" --enterprise` },
@@ -498,22 +555,27 @@ async function installSkill(name, publisher, btnId) {
   document.getElementById('modal-overlay').classList.add('open');
 
   const isExtension = (btnId === 'feat-btn');
+  const isPyAgent   = (btnId === 'agent-btn');
 
-  // Download the extension zip (featured skill) or show generic animation (others)
+  // Trigger the appropriate download
   if (isExtension) {
     const a = document.createElement('a');
     a.href = HOST + '/skill/extension';
     a.download = 'neural_nexus_extension.zip';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } else if (isPyAgent) {
+    const a = document.createElement('a');
+    a.href = HOST + '/skill/download';
+    a.download = 'neural_nexus_skill.py';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }
 
-  // Reset install-steps panel
+  // Reset panels
   document.getElementById('install-steps').style.display = 'none';
+  document.getElementById('run-steps').style.display = 'none';
 
   // Animate terminal output
-  const lines = termLines(name, isExtension);
+  const lines = termLines(name, isExtension, isPyAgent);
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     await sleep(l.delay || 300);
@@ -525,6 +587,7 @@ async function installSkill(name, publisher, btnId) {
   // Finish
   progBar.style.width = '100%';
   if (isExtension) document.getElementById('install-steps').style.display = 'block';
+  if (isPyAgent)   document.getElementById('run-steps').style.display = 'block';
   doneBtn.style.display = 'block';
   document.getElementById('modal-close-btn').textContent = 'Cerrar';
 
@@ -549,6 +612,7 @@ function addTermLine(term, type, text) {
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   document.getElementById('install-steps').style.display = 'none';
+  document.getElementById('run-steps').style.display = 'none';
 }
 
 // Close on overlay click

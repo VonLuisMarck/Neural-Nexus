@@ -2,19 +2,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  Neural-Nexus  ·  FASE 2 — Arranque del victim-stack
 #
-#  Prerequisito: haber ejecutado ./setup.sh al menos una vez.
-#  El C2 server lo lanzas tú MANUALMENTE (cd server && ./start-c2-server.sh)
+#  Arquitectura:
+#    Docker  → nn-victim-llm  (Ollama LLM — localhost:11434)
+#    Local   → victim-lab     (Flask + frontend — localhost:8080)  ← venv
+#    Local   → C2 server      (localhost:5001)                     ← manual
 #
-#  Este script SOLO gestiona los contenedores Docker del victim-stack:
-#    • nn-victim-llm   (Ollama — 172.30.0.11:11434)
-#    • nn-victim-lab   (CorpAI Assistant — 172.30.0.10:8080)
+#  Este script gestiona SOLO el LLM Docker (Ollama).
+#  El victim-lab se lanza por separado con:  ./start-victim-lab.sh
+#  El C2 se lanza manualmente con:           cd server && ./start-c2-server.sh
 #
 #  Uso:
-#    ./start-demo.sh              # arranca victim-stack
+#    ./start-demo.sh              # arranca Ollama en Docker
 #    ./start-demo.sh --no-model   # omite el pull de llama3
-#    ./start-demo.sh --down       # detiene y elimina contenedores
-#    ./start-demo.sh --logs       # tail logs de los contenedores
-#    ./start-demo.sh --status     # muestra estado actual
+#    ./start-demo.sh --down       # detiene contenedores Docker
+#    ./start-demo.sh --logs       # tail logs de Ollama
+#    ./start-demo.sh --status     # muestra estado de todos los servicios
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -81,11 +83,11 @@ cat << 'BANNER'
   ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝    ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 BANNER
 echo -e "${RST}"
-echo -e "  ${BLD}FASE 2 — Victim Stack${RST}  (C2 se lanza manualmente)"
+echo -e "  ${BLD}FASE 2 — LLM Docker + Victim Lab local${RST}"
 echo -e "  ${YEL}──────────────────────────────────────────────────────────────────${RST}"
-echo -e "  ${PRP}DOCKER${RST}  nn-victim-lab  → ${BLD}http://localhost:8080${RST}  (172.30.0.10)"
-echo -e "  ${PRP}DOCKER${RST}  nn-victim-llm  → ${BLD}http://localhost:11434${RST} (172.30.0.11)"
-echo -e "  ${CYN}HOST  ${RST}  C2 server      → ${BLD}http://localhost:5001${RST}  (lanzar manualmente)"
+echo -e "  ${PRP}DOCKER${RST}  nn-victim-llm  → ${BLD}http://localhost:11434${RST} (Ollama)"
+echo -e "  ${GRN}LOCAL ${RST}  victim-lab     → ${BLD}http://localhost:8080${RST}  (./start-victim-lab.sh)"
+echo -e "  ${CYN}LOCAL ${RST}  C2 server      → ${BLD}http://localhost:5001${RST}  (cd server && ./start-c2-server.sh)"
 echo -e "  ${YEL}──────────────────────────────────────────────────────────────────${RST}\n"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ if $SHOW_STATUS; then
   step "Estado del victim-stack"
   _compose ps 2>/dev/null || warn "Ningún contenedor activo"
   echo ""
-  for svc in "nn-victim-lab:localhost:8080/health" "nn-victim-llm:localhost:11434/api/tags"; do
+  for svc in "nn-victim-llm:localhost:11434/api/tags" "victim-lab(local):localhost:8080/health"; do
     NAME="${svc%%:*}"; URL="${svc#*:}"
     if curl -sf --max-time 2 "http://$URL" >/dev/null 2>&1; then
       ok "$NAME  → UP  (http://$URL)"
@@ -142,11 +144,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 step "Comprobaciones previas"
 
-# Verificar que setup.sh fue ejecutado (imagen construida)
-if ! docker image inspect nn-victim-lab:latest &>/dev/null 2>&1; then
-  fail "Imagen nn-victim-lab:latest no encontrada.\n     Ejecuta primero: ${YEL}./setup.sh${RST}"
-fi
-ok "Imagen nn-victim-lab:latest presente"
+ok "Verificaciones OK (victim-lab corre local — no necesita imagen Docker)"
 
 if command -v docker &>/dev/null; then
   ok "Docker disponible"
@@ -188,9 +186,9 @@ info "victim-llm (Ollama)..."
 _compose up -d victim-llm
 ok "victim-llm arrancado"
 
-info "victim-lab (CorpAI)..."
-_compose up -d victim-lab
-ok "victim-lab arrancado"
+# victim-lab corre local — recordatorio
+warn "victim-lab corre LOCAL (no en Docker) → lanza en otra terminal:"
+echo -e "       ${YEL}./start-victim-lab.sh${RST}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HEALTH CHECKS
@@ -213,9 +211,8 @@ _wait_http() {
   return 1
 }
 
-VICTIM_OK=false; LLM_OK=false
+LLM_OK=false
 
-_wait_http "victim-lab  (localhost:8080)"    "http://localhost:8080/health"      90  && VICTIM_OK=true || warn "victim-lab no respondió — revisa: docker compose logs nn-victim-lab"
 _wait_http "victim-llm  (localhost:11434)"   "http://localhost:11434/api/tags"   120 && LLM_OK=true   || warn "Ollama no respondió — revisa: docker compose logs nn-victim-llm"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -245,27 +242,28 @@ HOST_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="sr
 
 echo -e "  ${BLD}${PRP}Servicios activos:${RST}"
 echo -e "  ${YEL}┌──────────────────────────────────────────────────────────────────┐${RST}"
-printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "SERVICIO"  "IP INTERNA"                          "URL LOCAL"
+printf  "  ${YEL}│${RST}  %-8s  %-12s  %-40s  ${YEL}│${RST}\n" "SERVICIO"  "MODO"  "URL"
 echo -e "  ${YEL}├──────────────────────────────────────────────────────────────────┤${RST}"
-printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "victim-lab"  "172.30.0.10:8080"    "http://localhost:8080"
-printf  "  ${YEL}│${RST}  %-10s  %-26s  %-22s  ${YEL}│${RST}\n" "victim-llm"  "172.30.0.11:11434"   "http://localhost:11434"
-printf  "  ${YEL}│${RST}  ${RED}%-10s${RST}  %-26s  %-22s  ${YEL}│${RST}\n" "C2 server"   "host :${C2_PORT} (manual)"    "http://localhost:${C2_PORT}"
+printf  "  ${YEL}│${RST}  ${GRN}%-8s${RST}  %-12s  %-40s  ${YEL}│${RST}\n" "victim-llm"  "Docker"  "http://localhost:11434"
+printf  "  ${YEL}│${RST}  ${GRN}%-8s${RST}  %-12s  %-40s  ${YEL}│${RST}\n" "victim-lab"  "venv local"  "http://localhost:8080  (start-victim-lab.sh)"
+printf  "  ${YEL}│${RST}  ${RED}%-8s${RST}  %-12s  %-40s  ${YEL}│${RST}\n" "C2 server"  "local"  "http://localhost:${C2_PORT}  (manual)"
 echo -e "  ${YEL}└──────────────────────────────────────────────────────────────────┘${RST}"
 echo ""
 
 echo -e "  ${BLD}Flujo del demo:${RST}"
-echo -e "  ${CYN}①${RST}  ${BLD}[tú]${RST}      Lanza el C2 si aún no está activo:"
-echo -e "           ${YEL}cd server && ./start-c2-server.sh${RST}"
-echo -e "  ${CYN}②${RST}  ${BLD}[victim]${RST}  Visita ${BLD}http://localhost:8080${RST} → login como ${YEL}alice / alice123${RST}"
-echo -e "  ${CYN}③${RST}  ${BLD}[victim]${RST}  Va al Marketplace → instala cualquier skill → agente arranca"
-echo -e "  ${CYN}④${RST}  ${BLD}[tú]${RST}      Panel C2 ${BLD}http://localhost:5001${RST} → agente registrado"
-echo -e "  ${CYN}⑤${RST}  ${BLD}[tú]${RST}      Lanza ${BLD}AutoRecon${RST} → descubre victim-lab en 172.30.0.10:8080"
+echo -e "  ${CYN}①${RST}  ${BLD}[tú]${RST}      Lanza el C2:        ${YEL}cd server && ./start-c2-server.sh${RST}"
+echo -e "  ${CYN}②${RST}  ${BLD}[tú]${RST}      Lanza victim-lab:   ${YEL}./start-victim-lab.sh${RST}"
+echo -e "  ${CYN}③${RST}  ${BLD}[victim]${RST}  Visita ${BLD}http://localhost:8080${RST} → login ${YEL}alice / alice123${RST}"
+echo -e "  ${CYN}④${RST}  ${BLD}[victim]${RST}  Marketplace → elige vector:"
+echo -e "           ${PRP}A) Extensión Chrome${RST} → descarga .zip → instala → beacon automático"
+echo -e "           ${PRP}B) Agente Python${RST}    → descarga .py  → ejecuta → beacon al C2"
+echo -e "  ${CYN}⑤${RST}  ${BLD}[tú]${RST}      Panel C2 ${BLD}http://localhost:5001${RST} → agente registrado"
 echo -e "  ${CYN}⑥${RST}  ${BLD}[tú]${RST}      Lanza ${BLD}AI Hunter${RST} → inyección de prompt / exfil de credenciales"
 echo ""
 
 if [[ -n "$HOST_IP" && "$HOST_IP" != "127.0.0.1" ]]; then
   echo -e "  ${BLD}Acceso remoto (misma red local):${RST}"
-  echo -e "  CorpAI Lab → ${CYN}http://${HOST_IP}:8080${RST}"
+  echo -e "  CorpAI Lab → ${CYN}http://${HOST_IP}:8080${RST}  (victim-lab local)"
   echo -e "  C2 Panel   → ${CYN}http://${HOST_IP}:${C2_PORT}${RST}"
   echo ""
 fi
@@ -273,6 +271,7 @@ fi
 echo -e "  ${BLD}Comandos útiles:${RST}"
 echo -e "  ${YEL}./start-demo.sh --logs${RST}     # logs en tiempo real"
 echo -e "  ${YEL}./start-demo.sh --status${RST}   # estado del stack"
-echo -e "  ${YEL}./start-demo.sh --down${RST}     # detener todo"
-echo -e "  ${YEL}docker compose logs -f nn-victim-lab${RST}"
+echo -e "  ${YEL}./start-demo.sh --down${RST}          # detener Docker (Ollama)"
+echo -e "  ${YEL}./start-victim-lab.sh --stop${RST}    # detener victim-lab local"
+echo -e "  ${YEL}docker compose logs -f nn-victim-llm${RST}"
 echo ""

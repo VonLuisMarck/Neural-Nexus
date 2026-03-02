@@ -1,27 +1,25 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Neural-Nexus — Victim Stack Compose
+#  Neural-Nexus — LLM Docker Compose
 #
-#  The C2 server runs LOCALLY on the host (see start-demo.sh).
-#  Only the victim-side services run here, isolated on nn-demo-net.
+#  Solo el LLM (Ollama) corre en Docker.
+#  El victim-lab (Flask + frontend) corre en LOCAL con venv.
 #
-#  Network topology (nn-demo-net  172.30.0.0/24):
-#
-#    172.30.0.1   gateway / host  ← C2 reachable here from inside containers
-#    172.30.0.10  nn-victim-lab   CorpAI Assistant (RAG + JWT RBAC)
+#  Network topology:
 #    172.30.0.11  nn-victim-llm   Ollama LLM backend
 #
 #  Host ports:
-#    8080  →  Victim AI assistant   (http://localhost:8080)
-#    11434 →  Ollama API (optional, for direct inspection)
+#    11434 →  Ollama API             (http://localhost:11434)
+#    8080  →  victim-lab (local)     (http://localhost:8080)  ← venv local
+#    5001  →  C2 server (local)      (http://localhost:5001)  ← manual
 #
-#  Skill dropper from the host:
-#    python victim-lab/skill/neural_nexus_skill.py --c2 http://localhost:5001
+#  Arrancar victim-lab localmente:
+#    ./start-victim-lab.sh
 #
-#  Usage (prefer start-demo.sh which also starts the local C2):
-#    docker compose up --build
-#    docker compose logs -f nn-victim-lab
+#  Usage:
+#    docker compose up -d          # solo Ollama
+#    docker compose logs -f
 # ─────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -60,38 +58,6 @@ services:
     labels:
       nn.role: "victim-llm"
       nn.ip: "172.30.0.11"
-
-  # ── Victim AI assistant (CorpAI / RAG) ──────────────────────────────────────
-  victim-lab:
-    build:
-      context: ./victim-lab/backend
-      dockerfile: Dockerfile
-    image: nn-victim-lab:latest
-    container_name: nn-victim-lab
-    hostname: nn-victim-lab
-    restart: unless-stopped
-    networks:
-      nn-demo-net:
-        ipv4_address: 172.30.0.10
-    ports:
-      - "8080:8080"
-    environment:
-      - OLLAMA_HOST=http://172.30.0.11:11434
-      - OLLAMA_MODEL=llama3
-      - LAB_ID=victim-corp-01
-      - JWT_SECRET_KEY=change-this-in-production
-      - PORT=8080
-    volumes:
-      - ./victim-lab/frontend:/frontend:ro
-      - ./victim-lab/skill:/skill:ro
-    depends_on:
-      - victim-llm
-    # Allows victim-lab to reach the host C2 as host.docker.internal
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    labels:
-      nn.role: "victim-lab"
-      nn.ip: "172.30.0.10"
 
 volumes:
   ollama_data:
