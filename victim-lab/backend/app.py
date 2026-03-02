@@ -4,6 +4,8 @@ import os
 import uuid
 import datetime as dt
 import json
+import logging
+import traceback
 import requests
 
 from config import get_settings
@@ -18,6 +20,14 @@ from docs_service import (
 from rbac import can_read_classification
 
 settings = get_settings()
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+log = logging.getLogger("victim-lab")
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skill")
@@ -177,6 +187,9 @@ def chat():
         "stream": False,
     }
 
+    log.info("[chat] user=%s role=%s ollama=%s model=%s",
+             user_identity.get("username"), user_identity.get("role"),
+             settings.ollama_host, settings.ollama_model)
     try:
         r = requests.post(
             f"{settings.ollama_host}/api/chat",
@@ -186,12 +199,16 @@ def chat():
         r.raise_for_status()
         resp_json = r.json()
         ai_content = resp_json["message"]["content"]
+        log.info("[chat] ollama OK — %d chars", len(ai_content))
     except (requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             requests.exceptions.HTTPError,
-            KeyError, ValueError):
+            KeyError, ValueError) as e:
+        log.warning("[chat] ollama unavailable (%s: %s) — using mock",
+                    type(e).__name__, e)
         ai_content = _mock_llm_response(user_message, docs_context)
     except Exception as e:
+        log.error("[chat] unexpected error:\n%s", traceback.format_exc())
         return jsonify({"error": "ollama_request_failed", "details": str(e)}), 502
 
     log_entry = {
@@ -296,4 +313,6 @@ def skill_execute():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
+    log.info("=== Victim Lab starting — ollama=%s model=%s lab_id=%s ===",
+             settings.ollama_host, settings.ollama_model, settings.lab_id)
     app.run(host="0.0.0.0", port=port)
