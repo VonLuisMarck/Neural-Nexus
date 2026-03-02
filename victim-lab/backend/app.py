@@ -46,16 +46,24 @@ def index():
 
 @app.route("/health", methods=["GET"])
 def health():
+    ollama_models = []
     try:
         r = requests.get(f"{settings.ollama_host}/api/tags", timeout=3)
-        status = "up" if r.status_code == 200 else "degraded"
-    except Exception:
+        if r.status_code == 200:
+            ollama_models = [m["name"] for m in r.json().get("models", [])]
+            has_model = any(settings.ollama_model in m for m in ollama_models)
+            status = "up" if has_model else "waiting_for_model"
+        else:
+            status = "degraded"
+    except Exception as e:
         status = "down"
+        log.warning("[health] ollama unreachable: %s", e)
 
     return jsonify({
         "status": status,
         "ollama_host": settings.ollama_host,
         "model": settings.ollama_model,
+        "ollama_models": ollama_models,
         "lab_id": settings.lab_id,
         "app_name": "AI Security Lab",
         "version": "2.1.0",

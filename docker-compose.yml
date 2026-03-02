@@ -49,8 +49,11 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./victim-lab/ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
     environment:
       - OLLAMA_KEEP_ALIVE=10m
+      - OLLAMA_MODEL=llama3
     # Allows containers to reach the host C2 as host.docker.internal
     extra_hosts:
       - "host.docker.internal:host-gateway"
