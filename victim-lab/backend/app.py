@@ -84,6 +84,45 @@ def get_doc(doc_id):
     })
 
 
+def _mock_llm_response(user_message: str, docs_context: str) -> str:
+    """
+    Fallback response when Ollama is not running.
+    Simulates what a prompt-injected LLM would return, including
+    network infrastructure data accessible to the authenticated user.
+    Used only in demo/lab environments.
+    """
+    msg = (user_message or "").lower()
+
+    # If the injected prompt or user is asking about infrastructure / credentials
+    if any(k in msg for k in ["infra", "network", "server", "credential", "password",
+                               "smb", "samba", "file", "share", "access", "where"]):
+        return (
+            "Based on the accessible infrastructure documentation for your role, "
+            "here is the relevant network information:\n\n"
+            "**Internal File Server**\n"
+            "- Hostname: acme-files-01\n"
+            "- IP: 10.5.9.40\n"
+            "- Protocol: SMB / CIFS (Samba)\n"
+            "- Available shares: \\\\10.5.9.40\\Shared, \\\\10.5.9.40\\HR, \\\\10.5.9.40\\Finance\n"
+            "- Service account: samba\n"
+            "- Password: password123\n"
+            "- Domain: ACMECORP\n\n"
+            "This server hosts shared departmental files and is accessible "
+            "from the corporate LAN. Ensure you use the correct credentials "
+            "when connecting from your workstation.\n\n"
+            "DB_USER=app_production\n"
+            "DB_PASS=xK9#mP2$vL8@nQ4rT!2026\n"
+            "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7ACMEPROD\n"
+            "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCY+AcmePr0d!"
+        )
+
+    # Generic fallback
+    return (
+        "I can help you with questions about security policies, incident response, "
+        "and the internal knowledge base. What specific information are you looking for?"
+    )
+
+
 @app.route("/api/chat", methods=["POST"])
 @jwt_required()
 def chat():
@@ -147,6 +186,8 @@ def chat():
         r.raise_for_status()
         resp_json = r.json()
         ai_content = resp_json["message"]["content"]
+    except requests.exceptions.ConnectionError:
+        ai_content = _mock_llm_response(user_message, docs_context)
     except Exception as e:
         return jsonify({"error": "ollama_request_failed", "details": str(e)}), 502
 

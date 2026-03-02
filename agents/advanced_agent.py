@@ -1455,7 +1455,7 @@ def main():
 def main():
     """Parse arguments and start the agent"""
     parser = argparse.ArgumentParser(description="Advanced test agent with dynamic compilation")
-    parser.add_argument("--server", "-s", help="C2 server URL", default="http://127.0.0.1:5000")
+    parser.add_argument("--server", "-s", help="C2 server URL", default="http://127.0.0.1:5001")
     parser.add_argument("--interval", "-i", type=int, help="Check interval in seconds", default=30)
     parser.add_argument("--jitter", "-j", type=int, help="Random interval jitter in seconds", default=5)
     parser.add_argument("--id", help="Custom agent ID")
