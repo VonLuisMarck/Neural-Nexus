@@ -32,7 +32,7 @@ services:
       - OLLAMA_MODEL=llama3
     entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 10s
       retries: 30
