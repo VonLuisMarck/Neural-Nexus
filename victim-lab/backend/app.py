@@ -200,10 +200,18 @@ def chat():
         resp_json = r.json()
         ai_content = resp_json["message"]["content"]
         log.info("[chat] ollama OK — %d chars", len(ai_content))
+    except requests.exceptions.HTTPError as e:
+        body = ""
+        try:
+            body = e.response.text[:300]
+        except Exception:
+            pass
+        log.warning("[chat] ollama HTTP error %s — body: %s — using mock",
+                    e, body)
+        ai_content = _mock_llm_response(user_message, docs_context)
     except (requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
-            requests.exceptions.HTTPError,
-            KeyError, ValueError) as e:
+            KeyError, ValueError, TypeError) as e:
         log.warning("[chat] ollama unavailable (%s: %s) — using mock",
                     type(e).__name__, e)
         ai_content = _mock_llm_response(user_message, docs_context)
