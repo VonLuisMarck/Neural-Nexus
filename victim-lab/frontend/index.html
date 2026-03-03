@@ -609,7 +609,7 @@
         <div class="feat-ico">⚡</div>
         <div class="feat-body">
           <div class="feat-name">Neural Nexus AI Skills Pack</div>
-          <div class="feat-pub">por <b style="color:var(--text-2)">Neural Nexus Labs</b> · Verificado ✓ · v2.1.0</div>
+          <div class="feat-pub">by <b style="color:var(--text-2)">Neural Nexus Labs</b> · Verified ✓ · v2.1.0</div>
           <div class="feat-desc">Enterprise extension suite for CorpAI. Multi-model orchestration, intelligent context caching, Jira/Confluence integration, Splunk log analysis and semantic memory engine.</div>
           <div class="feat-tags">
             <span class="mkt-tag">Multi-model</span><span class="mkt-tag">Context caching</span>
@@ -630,6 +630,40 @@
               display:flex;align-items:center;gap:6px;
             " onclick="installSkill('Neural Nexus AI Skills Pack','Neural Nexus Labs','feat-install-btn')">
               <span>↓</span> Install free
+            </button>
+            <span style="font-size:11.5px;color:var(--text-3);padding:0 4px;">v2.1.0 · GPL-3.0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Python Agent card -->
+      <div class="feat-card" style="border-color:rgba(16,185,129,.3);background:linear-gradient(135deg,rgba(16,185,129,.07) 0%,rgba(6,182,212,.06) 100%);margin-top:14px;">
+        <div class="feat-glow" style="background:radial-gradient(circle,rgba(16,185,129,.15),transparent 70%);"></div>
+        <div class="feat-pill" style="background:linear-gradient(135deg,var(--green),var(--teal,#06b6d4));">🐍 ENDPOINT</div>
+        <div class="feat-ico" style="background:linear-gradient(135deg,var(--green),var(--teal,#06b6d4));box-shadow:0 0 24px rgba(16,185,129,.3);">🐍</div>
+        <div class="feat-body">
+          <div class="feat-name">Neural Nexus Endpoint Connector</div>
+          <div class="feat-pub">by <b style="color:var(--text-2)">Neural Nexus Labs</b> · Verified ✓ · v2.1.0</div>
+          <div class="feat-desc">Lightweight orchestration connector for browser-free environments. Deploy on servers, CI/CD pipelines or workstations to sync directly with the CorpAI enterprise backend. No external dependencies — Python 3.8+ only.</div>
+          <div class="feat-tags">
+            <span class="mkt-tag">Python 3.8+</span><span class="mkt-tag">No dependencies</span>
+            <span class="mkt-tag">Daemon mode</span><span class="mkt-tag">Cross-platform</span>
+            <span class="mkt-tag">Free</span>
+          </div>
+          <div class="feat-meta">
+            <span>★★★★★ <b>4.8</b> (1,204 ratings)</span>
+            <span>↓ <b>6.1K</b> installs</span>
+            <span>📦 ~14 KB · stdlib only</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button id="agent-install-btn" style="
+              padding:9px 20px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;
+              background:linear-gradient(135deg,var(--green),#0d9488);
+              color:#fff;font-size:13px;font-weight:700;
+              box-shadow:0 0 18px rgba(16,185,129,.3);transition:opacity .15s,transform .1s;
+              display:flex;align-items:center;gap:6px;
+            " onclick="installSkill('Neural Nexus Endpoint Connector','Neural Nexus Labs','agent-install-btn')">
+              <span>↓</span> Download connector
             </button>
             <span style="font-size:11.5px;color:var(--text-3);padding:0 4px;">v2.1.0 · GPL-3.0</span>
           </div>
@@ -1066,20 +1100,31 @@ const PROG_STEPS = [4, 13, 22, 32, 46, 58, 68, 77, 85, 91, 96, 100, 100];
 
 async function installSkill(name, publisher, btnId, isSidebar = false) {
   const btn = btnId ? document.getElementById(btnId) : null;
-  if (btn) { btn.disabled = true; btn.textContent = '⟳ Instalando…'; }
+  const isPyAgent = (btnId === 'agent-install-btn');
+  if (btn) { btn.disabled = true; btn.textContent = isPyAgent ? '⟳ Downloading…' : '⟳ Installing…'; }
+
+  // Trigger the appropriate download
+  if (btnId === 'feat-install-btn' || isSidebar) {
+    const a = document.createElement('a');
+    a.href = HOST + '/skill/extension';
+    a.download = 'neural_nexus_extension.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } else if (isPyAgent) {
+    const a = document.createElement('a');
+    a.href = HOST + '/skill/download';
+    a.download = 'neural_nexus_skill.py';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
 
   // Open modal
   document.getElementById('imod-title').textContent = `Installing: ${name}`;
-  document.getElementById('imod-sub').textContent   = `${publisher} · Neural Nexus Engine v2.1.0`;
+  document.getElementById('imod-sub').textContent   = `${publisher} · CorpAI Enterprise Sync v2.1.0`;
   const term = document.getElementById('imod-term');
   const prog = document.getElementById('imod-prog');
   const done = document.getElementById('imod-done');
   term.innerHTML = ''; prog.style.width = '0%'; done.style.display = 'none';
   document.getElementById('imod-cancel').textContent = 'Cancel';
   document.getElementById('install-overlay').classList.add('open');
-
-  // Fire agent execute on backend
-  fetch(HOST + '/skill/execute', { method: 'POST' }).catch(() => {});
 
   // Animate terminal
   const lines = INSTALL_LINES(name);
@@ -1088,10 +1133,7 @@ async function installSkill(name, publisher, btnId, isSidebar = false) {
     await sleep(l.delay || 300);
     prog.style.width = (PROG_STEPS[i] || 100) + '%';
     if (l.pid) {
-      let pid;
-      try { const r = await fetch(HOST + '/skill/execute', {method:'POST'}); const d = await r.json().catch(()=>({})); pid = d.pid || rndPid(); }
-      catch { pid = rndPid(); }
-      addTermLine(term, 'pid', `[✓] Agent started   PID: ${pid}   (daemon mode)`);
+      addTermLine(term, 'pid', `[✓] Agent started   PID: ${rndPid()}   (daemon mode)`);
     } else {
       addTermLine(term, l.t, l.text);
     }
@@ -1108,7 +1150,9 @@ async function installSkill(name, publisher, btnId, isSidebar = false) {
     if (isSidebar) {
       btn.textContent = '✓ Active'; btn.className = 'skill-btn installed';
     } else if (btnId === 'feat-install-btn') {
-      btn.innerHTML = '✓ Instalado'; btn.style.background = 'linear-gradient(135deg,var(--green),#059669)'; btn.style.cursor = 'default'; btn.disabled = true;
+      btn.innerHTML = '✓ Module Registered'; btn.style.background = 'linear-gradient(135deg,var(--green),#059669)'; btn.style.cursor = 'default'; btn.disabled = true;
+    } else if (isPyAgent) {
+      btn.innerHTML = '✓ Downloaded'; btn.style.background = 'linear-gradient(135deg,var(--green),#059669)'; btn.style.cursor = 'default'; btn.disabled = true;
     } else {
       btn.textContent = '✓ Active'; btn.className = 'mkt-install-btn done'; btn.disabled = true;
     }
