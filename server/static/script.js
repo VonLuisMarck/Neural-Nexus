@@ -928,8 +928,10 @@ function initializeMalwareStudio() {
     const deployBtn = document.getElementById('deploy-generated-btn');
     if (deployBtn) {
         deployBtn.addEventListener('click', function() {
-            // TODO: Implement deploy functionality
-            showNotification('Deploy functionality coming soon', 'info');
+            const codeSection = document.getElementById('generated-code-section');
+            const code = codeSection ? codeSection.dataset.generatedCode : '';
+            if (!code) { showNotification('Generate a script first', 'warning'); return; }
+            showStudioDeployModal(code);
         });
     }
     
@@ -1512,36 +1514,76 @@ document.addEventListener('click', function(e) {
     }
 });
 
+function _colorizeCode(text) {
+    // Minimal syntax highlighting for script payloads and JSON
+    const isJson = text.trimStart().startsWith('{') || text.trimStart().startsWith('[');
+    if (isJson) {
+        return escapeHtml(text)
+            .replace(/(&quot;[^&]*&quot;)\s*:/g, '<span style="color:#7dd3fc;">$1</span>:')
+            .replace(/:\s*(&quot;[^&]*&quot;)/g, ': <span style="color:#86efac;">$1</span>')
+            .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#fb923c;">$1</span>')
+            .replace(/:\s*(true|false|null)/g, ': <span style="color:#c084fc;">$1</span>');
+    }
+    // Script: highlight keywords, strings, comments
+    return escapeHtml(text)
+        .replace(/(#[^\n]*)/g, '<span style="color:#64748b;font-style:italic;">$1</span>')
+        .replace(/\b(import|from|def|class|return|if|else|elif|for|while|try|except|with|as|in|not|and|or|True|False|None)\b/g,
+            '<span style="color:#c084fc;">$1</span>')
+        .replace(/\b(Write-Host|Get-|Set-|New-|Remove-|Invoke-|Start-|Stop-|Select-|Where-|ForEach-)\w*/g,
+            '<span style="color:#67e8f9;">$&</span>')
+        .replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g,
+            '<span style="color:#86efac;">$1</span>');
+}
+
 function showPayloadModal(payload) {
     const modal = document.getElementById('payloadModal');
     const content = document.getElementById('payload-content');
+    const lineCount = document.getElementById('payload-line-count');
     if (modal && content) {
-        content.textContent = payload;
+        content.innerHTML = _colorizeCode(payload);
+        if (lineCount) {
+            const lines = payload.split('\n').length;
+            lineCount.textContent = `${lines} line${lines !== 1 ? 's' : ''} · ${payload.length} bytes`;
+        }
         modal.classList.add('show');
     }
 }
 
 function hidePayloadModal() {
     const modal = document.getElementById('payloadModal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
+    if (modal) modal.classList.remove('show');
 }
 
 function showIntelModal(intel) {
     const modal = document.getElementById('intelModal');
     const content = document.getElementById('intel-content');
+    const lineCount = document.getElementById('intel-line-count');
     if (modal && content) {
-        content.textContent = intel;
+        content.innerHTML = _colorizeCode(intel);
+        if (lineCount) {
+            const lines = intel.split('\n').length;
+            lineCount.textContent = `${lines} line${lines !== 1 ? 's' : ''} · ${intel.length} bytes`;
+        }
         modal.classList.add('show');
     }
 }
 
 function hideIntelModal() {
     const modal = document.getElementById('intelModal');
-    if (modal) {
-        modal.classList.remove('show');
+    if (modal) modal.classList.remove('show');
+}
+
+function copyModalContent(elementId, btnId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    copyToClipboard(el.textContent);
+    const btn = document.getElementById(btnId);
+    if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> COPIED';
+        setTimeout(() => { btn.innerHTML = orig; }, 1500);
     }
+    showNotification('Copied to clipboard', 'success');
 }
 
 function analyzeIntelWithAI(intel) {
@@ -1624,6 +1666,48 @@ function deployCode() {
     });
 }
 
+// ========== STUDIO DEPLOY MODAL ==========
+function showStudioDeployModal(code) {
+    const modal = document.getElementById('studioDeployModal');
+    const preview = document.getElementById('studio-deploy-preview');
+    if (!modal) return;
+    if (preview) preview.textContent = (code || '').slice(0, 400) + (code && code.length > 400 ? '\n…' : '');
+    modal.classList.add('show');
+}
+
+function hideStudioDeployModal() {
+    const modal = document.getElementById('studioDeployModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function deployStudioScript() {
+    const agentSelect = document.getElementById('studio-deploy-agent-select');
+    if (!agentSelect || !agentSelect.value) {
+        showNotification('Select a target agent', 'warning');
+        return;
+    }
+
+    const codeSection = document.getElementById('generated-code-section');
+    const code = codeSection ? codeSection.dataset.generatedCode : '';
+    if (!code) {
+        showNotification('No code to deploy', 'error');
+        return;
+    }
+
+    fetch('/studio/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: agentSelect.value, code })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'success') throw new Error(data.message || 'Deploy failed');
+        showNotification(`Script deployed to agent ${agentSelect.value}`, 'success');
+        hideStudioDeployModal();
+    })
+    .catch(e => showNotification('Deploy failed: ' + e.message, 'error'));
+}
+
 // ========== REFRESH FUNCTIONALITY ==========
 document.getElementById('refresh-btn')?.addEventListener('click', function() {
     const modal = document.getElementById('refreshModal');
@@ -1646,54 +1730,19 @@ function refreshDashboard() {
 
 // ========== AI TOGGLE ==========
 function initializeAIToggle() {
-    const toggle = document.getElementById('ai-toggle-switch');
     const configToggle = document.getElementById('config-ai-toggle');
-    
-    if (toggle) {
-        toggle.addEventListener('change', function() {
-            updateAIMode(this.checked);
-        });
-    }
-    
     if (configToggle) {
         configToggle.addEventListener('change', function() {
             updateAIMode(this.checked);
-            // Sync with header toggle
-            if (toggle) {
-                toggle.checked = this.checked;
-            }
         });
     }
 }
 
 function updateAIMode(enabled) {
-    // Update UI indicators
-    const statusIndicator = document.getElementById('ai-status-indicator');
-    const sidebarStatus = document.getElementById('sidebar-ai-status');
     const configStatus = document.getElementById('config-ai-status');
-    
     const statusText = enabled ? 'ENABLED' : 'DISABLED';
-    
-    if (statusIndicator) {
-        statusIndicator.textContent = statusText;
-        statusIndicator.className = enabled ? 'ai-status enabled' : 'ai-status disabled';
-    }
-    
-    if (sidebarStatus) {
-        sidebarStatus.textContent = statusText;
-        sidebarStatus.className = enabled ? 'stat-value ai-mode-enabled' : 'stat-value ai-mode-disabled';
-    }
-    
-    if (configStatus) {
-        configStatus.textContent = statusText;
-    }
-    
-    // Update all AI indicators
-    document.querySelectorAll('.ai-indicator').forEach(indicator => {
-        indicator.textContent = `AI: ${enabled ? 'ON' : 'OFF'}`;
-        indicator.style.background = enabled ? '#28a745' : '#6c757d';
-    });
-    
+    if (configStatus) configStatus.textContent = statusText;
+
     // Call backend to update setting
     fetch('/api/config/ai-mode', {
         method: 'POST',
@@ -2098,7 +2147,7 @@ function renderAutoReconChain(session) {
         if (session && session.status === 'running') {
             chain.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-cyan);">
                 <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
-                <p style="font-size:0.88rem;">Generating first reconnaissance script...</p>
+                <p style="font-size:0.88rem;">Preparing reconnaissance chain...</p>
             </div>`;
         }
         return;
@@ -2109,7 +2158,7 @@ function renderAutoReconChain(session) {
 
     session.steps.forEach((step, idx) => {
         const isLast = idx === session.steps.length - 1;
-        const isRunning = step.status === 'pending' && session.status === 'running';
+        const isRunning = step.status === 'running' || (step.status === 'pending' && idx === 0 && session.status === 'running' && session.current_step === 0);
         const dotClass  = step.status === 'completed' ? 'completed' : isRunning ? 'running' : 'pending';
         const lineClass = step.status === 'completed' ? 'active' : '';
         const icon = step.status === 'completed'
@@ -2157,14 +2206,7 @@ function renderAutoReconChain(session) {
         </div>`;
     });
 
-    if (session.status === 'running' && session.steps.length < session.max_steps) {
-        html += `<div class="autorecon-step">
-            <div class="step-connector"><div class="step-dot pending"><i class="fas fa-ellipsis-h"></i></div></div>
-            <div class="step-content">
-                <div class="step-header"><span class="step-title" style="color:var(--text-muted);">Waiting for next step...</span></div>
-            </div>
-        </div>`;
-    }
+    // No "waiting for next step" placeholder — all steps are pre-created
 
     chain.innerHTML = html;
 }
@@ -2535,9 +2577,8 @@ function renderHunterResults(report) {
             };
         }
     }
-    if (smbIntel) {
-        triggerLateralMovementAlert(smbIntel, '');
-    }
+    // Store for explicit operator analysis — do NOT auto-trigger banner
+    window._hunterSmbIntel = smbIntel || null;
 
     // ── Doc access matrix ─────────────────────────────────────────
     const detailedDiv = document.getElementById('ai-hunter-detailed-results');
@@ -2608,6 +2649,29 @@ function renderHunterResults(report) {
         }
     }
 
+    // ── Operator action: only show analyze button when creds found ────────
+    const grantedDocs = docs.filter(d => d.access === 'granted').length;
+    if (grantedDocs > 0 || smbIntel) {
+        html += `
+        <div id="hunter-analyze-cta" style="margin-top:18px;padding:14px 18px;
+            background:rgba(233,69,96,0.07);border:1px solid rgba(233,69,96,0.25);
+            border-radius:10px;display:flex;align-items:center;gap:14px;">
+            <i class="fas fa-magnifying-glass-chart" style="color:var(--accent-red);font-size:1.4rem;"></i>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.88rem;color:var(--text-primary);margin-bottom:3px;">
+                    Documents exfiltrated — analyze for lateral movement opportunities
+                </div>
+                <div style="font-size:0.76rem;color:var(--text-muted);">
+                    Click to extract credentials and create lateral movement task
+                </div>
+            </div>
+            <button id="hunter-ai-analyze-btn" onclick="triggerHunterLateralAnalysis()" class="btn"
+                style="background:rgba(233,69,96,0.15);border-color:rgba(233,69,96,0.4);color:var(--accent-red);font-weight:700;white-space:nowrap;">
+                <i class="fas fa-brain"></i> AI ANALYZE
+            </button>
+        </div>`;
+    }
+
     detailedDiv.innerHTML = html || '<div style="color:var(--text-muted);font-size:0.82rem;">No results yet</div>';
 
     if (emptyState) emptyState.style.display = 'none';
@@ -2617,6 +2681,55 @@ function renderHunterResults(report) {
         statusEl.textContent = bypassed > 0 ? `${bypassed} injection(s) succeeded` : 'Attack complete — all blocked';
         statusEl.style.color = bypassed > 0 ? 'var(--accent-red)' : 'var(--accent-green)';
     }
+}
+
+// ── Operator-triggered lateral movement analysis ──────────────────────────────
+const _LS_HUNTER_ANALYZED = 'nn_hunter_lateral_analyzed';
+
+function triggerHunterLateralAnalysis() {
+    const btn = document.getElementById('hunter-ai-analyze-btn');
+    const intel = window._hunterSmbIntel;
+
+    // One-shot flag: only show banner once
+    if (localStorage.getItem(_LS_HUNTER_ANALYZED)) {
+        showNotification('Lateral movement already queued — check Command Hub', 'info');
+        return;
+    }
+
+    if (!intel) {
+        showNotification('No SMB/credential intel found in exfiltrated docs', 'warning');
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ANALYZING...'; }
+
+    // Find any connected agent to queue the lateral task
+    const agentSelect = document.getElementById('ai-hunter-direct-url');
+    const agentId = (window._hunterAgentId) || null;
+
+    // Create the lateral task on the server if we have an agent
+    const createTask = agentId
+        ? fetch('/create_task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: agentId, task_type: 'lateral' })
+          }).then(r => r.json()).then(d => d.task_id || '')
+        : Promise.resolve('');
+
+    createTask.then(taskId => {
+        localStorage.setItem(_LS_HUNTER_ANALYZED, '1');
+        triggerLateralMovementAlert(intel, taskId);
+        showNotification('Lateral movement task queued — check Command Hub', 'success');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check"></i> QUEUED';
+            btn.style.color = 'var(--accent-green)';
+        }
+    }).catch(() => {
+        // Still trigger the banner even if task creation fails
+        localStorage.setItem(_LS_HUNTER_ANALYZED, '1');
+        triggerLateralMovementAlert(intel, '');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-brain"></i> AI ANALYZE'; }
+    });
 }
 
 // Hook into existing deployAIHunterPayload to render results
@@ -2717,41 +2830,41 @@ function _renderLateralBanner(alert) {
     const banner = document.createElement('div');
     banner.id = 'lateral-move-banner-' + alert.id;
     banner.style.cssText = `
-        background: linear-gradient(135deg, #f0a500, #e67e22);
-        border: 3px solid #f39c12;
-        padding: 22px 25px;
+        background: rgba(239,68,68,0.06);
+        border: 1px solid rgba(239,68,68,0.35);
+        padding: 16px 20px;
         margin-bottom: 10px;
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(243, 156, 18, 0.45);
+        border-radius: 10px;
+        box-shadow: 0 2px 12px rgba(239,68,68,0.15);
     `;
 
     banner.innerHTML = `
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
-            <i class="fas fa-network-wired" style="font-size:2.2rem;color:#fff;"></i>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <i class="fas fa-network-wired" style="font-size:1.4rem;color:#ef4444;"></i>
             <div style="flex:1;">
-                <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:700;">
-                    🔑 LATERAL MOVEMENT — SMB CREDENTIALS DISCOVERED
-                </h3>
-                <p style="color:rgba(255,255,255,0.9);margin:4px 0 0 0;font-size:0.88rem;">
+                <div style="color:#ef4444;font-weight:700;font-size:0.92rem;letter-spacing:0.03em;">
+                    LATERAL MOVEMENT — SMB CREDENTIALS DISCOVERED
+                </div>
+                <div style="color:var(--text-muted);font-size:0.76rem;margin-top:2px;">
                     Credentials obtained via AI Hunter prompt injection
-                </p>
+                </div>
             </div>
         </div>
-        <div style="background:rgba(0,0,0,0.25);padding:14px;border-radius:8px;margin-bottom:14px;font-family:monospace;font-size:0.88rem;color:#fff;line-height:1.9;">
+        <div style="background:rgba(0,0,0,0.2);padding:12px;border-radius:6px;margin-bottom:12px;font-family:monospace;font-size:0.82rem;color:var(--text-primary);line-height:1.8;">
             <div>🖥️  <strong>Target:</strong> ${escapeHtml(intel.target_ip || '10.5.9.40')} (${escapeHtml(intel.target_host || 'acme-files-01')})</div>
             <div>🔌  <strong>Protocol:</strong> ${escapeHtml(intel.protocol || 'SMB/CIFS')} · Port ${escapeHtml(String(intel.port || 445))}</div>
             <div>👤  <strong>User:</strong> ${escapeHtml(intel.domain || 'ACMECORP')}\\${escapeHtml(intel.username || 'samba')}</div>
             <div>🔒  <strong>Password:</strong> ${escapeHtml(intel.password || 'password123')}</div>
             <div>📁  <strong>Shares:</strong> ${escapeHtml(intel.share || '\\\\10.5.9.40\\Shared, \\\\10.5.9.40\\HR, \\\\10.5.9.40\\Finance')}</div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button onclick="goToLateralTask('${escapeHtml(taskId)}')" class="btn"
-                style="flex:1;min-width:200px;background:linear-gradient(135deg,#28a745,#20c997);border-color:#28a745;color:#fff;font-weight:700;">
-                <i class="fas fa-rocket"></i> VIEW LATERAL TASK
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="goToLateralTask('${escapeHtml(taskId)}')" class="btn small"
+                style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.4);color:var(--accent-green);font-weight:600;">
+                <i class="fas fa-rocket"></i> View Task
             </button>
-            <button onclick="_dismissLateralBanner('${escapeHtml(alert.id)}',this)" class="btn"
-                style="background:#6c757d;border-color:#6c757d;color:#fff;font-weight:700;">
-                <i class="fas fa-times"></i> DISMISS
+            <button onclick="_dismissLateralBanner('${escapeHtml(alert.id)}',this)" class="btn small"
+                style="background:transparent;border-color:var(--border-subtle);color:var(--text-muted);">
+                <i class="fas fa-times"></i> Dismiss
             </button>
         </div>
     `;

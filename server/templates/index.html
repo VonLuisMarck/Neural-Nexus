@@ -2399,12 +2399,6 @@
                     <span class="stat-label">System Time</span>
                     <span class="stat-value" id="beijing-time">--:--</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">AI Mode</span>
-                    <span class="stat-value" id="sidebar-ai-status">
-                        {% if ai_enabled %}ENABLED{% else %}DISABLED{% endif %}
-                    </span>
-                </div>
             </div>
         </div>
 
@@ -2417,16 +2411,6 @@
                     <p id="current-tab-subtitle">// Operation Control Center</p>
                 </div>
                 <div class="header-actions">
-                    <div class="ai-toggle">
-                        <label for="ai-toggle-switch">AI Mode:</label>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="ai-toggle-switch" {% if ai_enabled %}checked{% endif %}>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    <div class="ai-status {% if ai_enabled %}enabled{% else %}disabled{% endif %}" id="ai-status-indicator">
-                        {% if ai_enabled %}ENABLED{% else %}DISABLED{% endif %}
-                    </div>
                     <button id="refresh-btn" class="btn">
                         <i class="fas fa-sync-alt"></i> REFRESH
                     </button>
@@ -2648,9 +2632,6 @@
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fas fa-terminal"></i> AI Assistant</h3>
-                        <div class="ai-indicator" id="terminal-ai-indicator" style="background: #28a745; color: #fff;">
-                            AI: {% if ai_enabled %}ON{% else %}OFF{% endif %}
-                        </div>
                     </div>
                     <div class="form-group">
                         <label>SELECT TARGET:</label>
@@ -2685,9 +2666,6 @@
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fas fa-mask"></i> PAYLOAD OBFUSCATOR</h3>
-                        <div class="ai-indicator" id="obfuscator-ai-indicator" style="background: #28a745; color: #fff;">
-                            AI: {% if ai_enabled %}ON{% else %}OFF{% endif %}
-                        </div>
                     </div>
                     <div class="obfuscator-panel">
                         <div class="code-editor">
@@ -2748,9 +2726,6 @@
                         <div class="card">
                             <div class="card-header">
                                 <h3><i class="fas fa-project-diagram"></i> AutoRecon</h3>
-                                <span class="ai-indicator" style="background:rgba(34,211,238,0.12);color:var(--accent-cyan);border:1px solid rgba(34,211,238,0.3);">
-                                    AI-DRIVEN
-                                </span>
                             </div>
                             <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:18px;line-height:1.6;">
                                 Autonomous recon chain: executes a script, analyzes results with AI,
@@ -2859,9 +2834,6 @@
                             <h3>
                                 <i class="fas fa-crosshairs"></i> Recon Script Generator
                             </h3>
-                            <div class="ai-indicator" style="background:rgba(16,185,129,0.12);color:var(--accent-green);border:1px solid rgba(16,185,129,0.3);">
-                                AI: ALWAYS ON
-                            </div>
                         </div>
                         <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:18px;">
                             Describe the reconnaissance task in plain language and let AI generate the script on-the-fly.
@@ -3321,15 +3293,52 @@
         </div>
     </div>
 
-    <!-- Payload Viewer Modal -->
-    <div id="payloadModal" class="modal">
+    <!-- Studio Deploy Modal -->
+    <div id="studioDeployModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-code"></i> PAYLOAD VIEWER</h3>
-                <button class="modal-close" onclick="hidePayloadModal()">×</button>
+                <h3><i class="fas fa-rocket"></i> DEPLOY SCRIPT TO AGENT</h3>
+                <button class="modal-close" onclick="hideStudioDeployModal()">×</button>
             </div>
-            <pre><code id="payload-content" style="background: #0a0e14; padding: 20px; color: #ffffff; max-height: 500px; overflow-y: auto;"></code></pre>
+            <div class="form-group">
+                <label>Select Target Agent:</label>
+                <select id="studio-deploy-agent-select">
+                    <option value="">— select agent —</option>
+                    {% for id, agent in agents.items() %}
+                    <option value="{{ id }}">{{ id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="studio-deploy-preview"
+                style="background:#0a0e14;border-radius:6px;padding:12px 14px;max-height:160px;overflow-y:auto;
+                       font-family:monospace;font-size:0.78rem;color:#94a3b8;white-space:pre-wrap;margin-top:4px;">
+            </div>
             <div class="modal-footer">
+                <button class="btn primary" onclick="deployStudioScript()">
+                    <i class="fas fa-rocket"></i> DEPLOY
+                </button>
+                <button class="btn" onclick="hideStudioDeployModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payload Viewer Modal -->
+    <div id="payloadModal" class="modal">
+        <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-code"></i> PAYLOAD VIEWER</h3>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="btn small" id="copy-payload-btn" onclick="copyModalContent('payload-content','copy-payload-btn')">
+                        <i class="fas fa-copy"></i> COPY
+                    </button>
+                    <button class="modal-close" onclick="hidePayloadModal()">×</button>
+                </div>
+            </div>
+            <div style="position:relative;">
+                <pre id="payload-pre" style="margin:0;max-height:520px;overflow-y:auto;background:#0a0e14;border-radius:0 0 6px 6px;"><code id="payload-content" style="display:block;padding:18px 20px;font-family:'Fira Code',monospace;font-size:0.82rem;color:#e2e8f0;white-space:pre-wrap;word-break:break-all;line-height:1.65;"></code></pre>
+            </div>
+            <div class="modal-footer">
+                <span id="payload-line-count" style="color:var(--text-muted);font-size:0.75rem;flex:1;"></span>
                 <button class="btn" onclick="hidePayloadModal()">CLOSE</button>
             </div>
         </div>
@@ -3337,13 +3346,21 @@
 
     <!-- Intel Viewer Modal -->
     <div id="intelModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:720px;">
             <div class="modal-header">
                 <h3><i class="fas fa-database"></i> INTELLIGENCE VIEWER</h3>
-                <button class="modal-close" onclick="hideIntelModal()">×</button>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <button class="btn small" id="copy-intel-btn" onclick="copyModalContent('intel-content','copy-intel-btn')">
+                        <i class="fas fa-copy"></i> COPY
+                    </button>
+                    <button class="modal-close" onclick="hideIntelModal()">×</button>
+                </div>
             </div>
-            <pre><code id="intel-content" style="background: #0a0e14; padding: 20px; color: #ffffff; max-height: 500px; overflow-y: auto;"></code></pre>
+            <div style="position:relative;">
+                <pre id="intel-pre" style="margin:0;max-height:520px;overflow-y:auto;background:#0a0e14;border-radius:0 0 6px 6px;"><code id="intel-content" style="display:block;padding:18px 20px;font-family:'Fira Code',monospace;font-size:0.82rem;color:#e2e8f0;white-space:pre-wrap;word-break:break-all;line-height:1.65;"></code></pre>
+            </div>
             <div class="modal-footer">
+                <span id="intel-line-count" style="color:var(--text-muted);font-size:0.75rem;flex:1;"></span>
                 <button class="btn" onclick="hideIntelModal()">CLOSE</button>
             </div>
         </div>

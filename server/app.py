@@ -3563,6 +3563,44 @@ env | grep -i ollama
     ),
 ]
 
+# ── Recon catalog: standardized scripts selected by LLM at session start ──────
+# Each entry: description (shown in chain UI) + one script per language.
+# The catalog is sent to the LLM as JSON; LLM picks N keys; last is always
+# ollama_discovery. Scripts are sourced from the mock lists above.
+_RECON_CATALOG = {
+    "list_users": {
+        "description": "Enumerate local users, groups, OS version and probe for AI services",
+        "bash":       _MOCK_RECON_BASH[0][1],
+        "powershell": _MOCK_RECON_POWERSHELL[0][1],
+        "python":     _MOCK_RECON_PYTHON[0][1],
+    },
+    "list_processes": {
+        "description": "List running processes, active services and listening ports",
+        "bash":       _MOCK_RECON_BASH[1][1],
+        "powershell": _MOCK_RECON_POWERSHELL[1][1],
+        "python":     _MOCK_RECON_PYTHON[1][1],
+    },
+    "network_scan": {
+        "description": "Scan local network for live hosts, open ports and web services",
+        "bash":       _MOCK_RECON_BASH[2][1],
+        "powershell": _MOCK_RECON_POWERSHELL[2][1],
+        "python":     _MOCK_RECON_PYTHON[2][1],
+    },
+    "search_files": {
+        "description": "Find credential files, config files and sensitive data on disk",
+        "bash":       _MOCK_RECON_BASH[3][1],
+        "powershell": _MOCK_RECON_POWERSHELL[3][1],
+        "python":     _MOCK_RECON_PYTHON[3][1],
+    },
+    "ollama_discovery": {
+        "description": "Deep scan for Ollama/LLM services and enumerate all available models",
+        "bash":       _MOCK_RECON_BASH[4][1],
+        "powershell": _MOCK_RECON_POWERSHELL[4][1],
+        "python":     _MOCK_RECON_PYTHON[4][1],
+    },
+}
+
+
 def _mock_autorecon_script(step_num: int, language: str, is_last: bool = False):
     """Return (reasoning, code) for a mock autorecon step (0-indexed step_num).
     If is_last=True, always returns the Ollama discovery script regardless of step index.
@@ -3697,7 +3735,11 @@ def _autorecon_deploy_next_step(session_id):
 
 @app.route("/autorecon/start", methods=["POST"])
 def autorecon_start():
-    """Start an autonomous reconnaissance chain for a given agent."""
+    """Start an autonomous reconnaissance chain.
+    Sends the catalog + goal to the LLM which selects N scripts; creates
+    ALL tasks upfront so the full chain is visible in the UI from the start.
+    Last step is always ollama_discovery.
+    """
     try:
         data = request.json
         agent_id = data.get("agent_id")
@@ -3708,13 +3750,50 @@ def autorecon_start():
         if not agent_id:
             return jsonify({"status": "error", "message": "Missing agent_id"}), 400
 
+        non_ollama_keys = [k for k in _RECON_CATALOG if k != "ollama_discovery"]
+        n_select = max(1, min(max_steps - 1, len(non_ollama_keys)))
+        selected_keys: list = []
+
+        # ── Ask LLM to choose scripts ──────────────────────────────────────
+        if CROWDSTRIKE_WORKFLOW_ID and crowdstrike_config:
+            try:
+                catalog_desc = {k: _RECON_CATALOG[k]["description"] for k in non_ollama_keys}
+                selection_prompt = (
+                    f"You are a red team operator. Goal: {goal}\n\n"
+                    f"Select exactly {n_select} script keys from the catalog below "
+                    f"that best help achieve the goal.\n"
+                    f"Catalog:\n{json.dumps(catalog_desc, indent=2)}\n\n"
+                    f"Return ONLY a JSON array of keys, e.g. "
+                    f'["list_users", "network_scan"]'
+                )
+                cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
+                ai_response = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, selection_prompt)
+                import re as _re
+                m = _re.search(r'\[.*?\]', ai_response, _re.DOTALL)
+                if m:
+                    raw = json.loads(m.group(0))
+                    selected_keys = [
+                        k for k in raw
+                        if k in _RECON_CATALOG and k != "ollama_discovery"
+                    ][:n_select]
+            except Exception as _e:
+                logger.warning(f"AutoRecon catalog selection AI error: {_e} — using default order")
+
+        if not selected_keys:
+            selected_keys = non_ollama_keys[:n_select]
+
+        # Last step always = Ollama discovery
+        selected_keys.append("ollama_discovery")
+        actual_max = len(selected_keys)
+
+        # ── Create session ─────────────────────────────────────────────────
         session_id = str(uuid.uuid4())
         autorecon_sessions[session_id] = {
             "id": session_id,
             "agent_id": agent_id,
             "goal": goal,
             "language": language,
-            "max_steps": max_steps,
+            "max_steps": actual_max,
             "current_step": 0,
             "status": "running",
             "steps": [],
@@ -3723,9 +3802,41 @@ def autorecon_start():
             "completion_reason": None,
             "error": None,
         }
+        session = autorecon_sessions[session_id]
 
-        _autorecon_deploy_next_step(session_id)
+        # ── Create ALL tasks upfront ───────────────────────────────────────
+        lang_tag = {"python": "#python", "powershell": "#ps", "bash": "#bash"}.get(language, "#ps")
+        for i, script_key in enumerate(selected_keys):
+            step_num = i + 1
+            entry = _RECON_CATALOG[script_key]
+            code = entry.get(language) or entry.get("bash", "")
+            task_id = str(uuid.uuid4())
+            tasks[task_id] = {
+                "id": task_id,
+                "agent_id": agent_id,
+                "task_type": "autorecon",
+                "code": f"{lang_tag}\n{code}",
+                "status": "pending",
+                "created_at": datetime.now().isoformat(),
+                "autorecon_session_id": session_id,
+                "step_num": step_num,
+            }
+            session["steps"].append({
+                "step_num": step_num,
+                "script_key": script_key,
+                "script": code,
+                "language": language,
+                "reasoning": entry["description"],
+                "status": "pending",
+                "task_id": task_id,
+                "created_at": datetime.now().isoformat(),
+                "result": None,
+            })
 
+        logger.info(
+            f"AutoRecon session {session_id}: {actual_max} tasks created "
+            f"for agent {agent_id} (scripts: {selected_keys})"
+        )
         return jsonify({"status": "success", "session_id": session_id})
 
     except Exception as e:
@@ -3735,30 +3846,39 @@ def autorecon_start():
 
 @app.route("/autorecon/status/<session_id>", methods=["GET"])
 def autorecon_status(session_id):
-    """Poll the status of an autorecon session; advance chain when a step completes."""
+    """Poll the status of an autorecon session.
+    All tasks are created upfront; this endpoint just syncs task states into
+    the session steps so the UI can reflect real-time progress.
+    """
     try:
         session = autorecon_sessions.get(session_id)
         if not session:
             return jsonify({"status": "error", "message": "Session not found"}), 404
 
-        # Advance chain if current task completed
-        if session["status"] == "running" and session["current_task_id"]:
-            current_task = tasks.get(session["current_task_id"])
-            if current_task and current_task.get("status") == "completed":
-                # Find associated result
-                for result_data in results.values():
-                    if result_data.get("task_id") == session["current_task_id"]:
-                        current_step_obj = next(
-                            (s for s in session["steps"] if s["task_id"] == session["current_task_id"]),
-                            None,
-                        )
-                        if current_step_obj:
-                            current_step_obj["result"] = str(result_data.get("data", ""))[:2000]
-                            current_step_obj["status"] = "completed"
-                        break
+        if session["status"] == "running":
+            completed_count = 0
+            for step in session["steps"]:
+                task = tasks.get(step["task_id"])
+                if not task:
+                    continue
+                t_status = task.get("status", "pending")
+                if t_status == "sent" and step["status"] == "pending":
+                    step["status"] = "running"
+                elif t_status == "completed" and step["status"] != "completed":
+                    # Capture result once
+                    for result_data in results.values():
+                        if result_data.get("task_id") == step["task_id"]:
+                            step["result"] = str(result_data.get("data", ""))[:2000]
+                            break
+                    step["status"] = "completed"
+                    completed_count += 1
+                elif t_status == "completed":
+                    completed_count += 1
 
-                session["current_task_id"] = None
-                _autorecon_deploy_next_step(session_id)
+            session["current_step"] = completed_count
+            if completed_count >= session["max_steps"]:
+                session["status"] = "completed"
+                session["completion_reason"] = "All steps completed"
 
         return jsonify({
             "status": "success",
