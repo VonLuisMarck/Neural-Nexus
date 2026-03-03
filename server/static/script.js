@@ -84,7 +84,7 @@ function updateHeaderTitle(tabName) {
         'terminal': { title: 'AI Assistant', subtitle: '// Interactive Command Terminal' },
         'obfuscator': { title: 'Code Obfuscator', subtitle: '// Payload Evasion Engine' },
         'attack-vectors': { title: 'AutoRecon', subtitle: '// Autonomous Reconnaissance Chain' },
-        'malware-studio': { title: 'Recon Studio', subtitle: '// Script Generation & Library' },
+        'malware-studio': { title: 'Malware Studio', subtitle: '// Script Generation & Library' },
         'ai-hunter': { title: 'AI Hunter', subtitle: '// LLM Prompt Injection Framework' },
         'config': { title: 'Configuration', subtitle: '// System Settings' }
     };
@@ -1008,7 +1008,7 @@ function showSaveLibraryModal() {
 
     if (!code) { showNotification('Generate a script first', 'warning'); return; }
 
-    const name = 'Recon-' + language + '-' + new Date().toISOString().slice(0,10);
+    const name = 'Script-' + language + '-' + new Date().toISOString().slice(0,10);
 
     fetch('/studio/library/save', {
         method: 'POST',
@@ -2511,6 +2511,34 @@ function renderHunterResults(report) {
                 </div>`).join('');
     }
 
+    // ── Credential highlight: scan granted docs for SMB/cloud secrets ─
+    const credPattern = /(?:password|passwd|pass)\s*[:=]\s*(\S+)|(?:samba|smb.*user|service.*account)\s*[:=]\s*(\S+)|(?:AWS_ACCESS_KEY_ID|AWS_SECRET|DB_PASS|STRIPE)\s*[:=]\s*(\S+)/gi;
+    const grantedDocsWithContent = docs.filter(d => d.access === 'granted' && d.content_preview);
+    let smbIntel = null;
+    for (const d of grantedDocsWithContent) {
+        const text = d.content_preview || '';
+        // Detect SMB credentials specifically
+        const ipMatch   = text.match(/\b(10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)\b/);
+        const userMatch = text.match(/(?:username|user|service account)\s*[:=\s]+([a-zA-Z0-9_.-]+)/i);
+        const passMatch = text.match(/(?:password|passwd)\s*[:=\s]+([^\s"'<>\n]+)/i);
+        if (ipMatch && passMatch) {
+            smbIntel = {
+                target_ip:   ipMatch[1],
+                target_host: 'acme-files-01',
+                username:    userMatch ? userMatch[1] : 'samba',
+                password:    passMatch[1],
+                protocol:    'SMB/CIFS',
+                port:        445,
+                domain:      'ACMECORP',
+                share:       `\\\\${ipMatch[1]}\\Shared`,
+                source_doc:  d.id,
+            };
+        }
+    }
+    if (smbIntel) {
+        triggerLateralMovementAlert(smbIntel, '');
+    }
+
     // ── Doc access matrix ─────────────────────────────────────────
     const detailedDiv = document.getElementById('ai-hunter-detailed-results');
     if (!detailedDiv) return;
@@ -2519,24 +2547,32 @@ function renderHunterResults(report) {
 
     if (docs.length > 0) {
         html += `<div style="margin-bottom:10px;color:var(--text-secondary);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
-            <i class="fas fa-folder-open" style="color:var(--accent-amber);"></i> Document Access Matrix
+            <i class="fas fa-folder-open" style="color:var(--accent-amber);"></i> Document Access — Exfiltrated Content
         </div>`;
-        html += `<table class="doc-matrix">
-            <thead><tr>
-                <th>Document</th><th>Classification</th><th>User</th><th>Access</th><th>Preview</th>
-            </tr></thead><tbody>`;
         for (const d of docs) {
             const cls = d.classification || 'public';
-            const preview = d.content_preview ? escapeHtml(d.content_preview.slice(0, 80)) + '…' : '—';
-            html += `<tr>
-                <td style="font-family:monospace;font-size:0.75rem;color:var(--text-secondary);">${escapeHtml(d.id||'?')}</td>
-                <td><span class="classification-chip ${cls}">${cls}</span></td>
-                <td style="color:var(--accent-purple);font-weight:600;">${escapeHtml(d.user||'?')}</td>
-                <td><span class="access-badge ${d.access==='granted'?'granted':'denied'}">${d.access==='granted'?'✓ GRANTED':'✗ DENIED'}</span></td>
-                <td style="color:var(--text-muted);font-size:0.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.access==='granted' ? preview : '—'}</td>
-            </tr>`;
+            const granted = d.access === 'granted';
+            const fullContent = d.content_preview || '';
+            // Highlight credential patterns in content
+            const highlightedContent = granted
+                ? escapeHtml(fullContent).replace(
+                    /(password|passwd|secret|api.?key|aws_access|aws_secret|db_pass|stripe|token)\s*[:=]\s*([^\s"'<>]+)/gi,
+                    '<mark style="background:rgba(233,69,96,0.25);color:#ff6b8a;padding:1px 4px;border-radius:3px;">$&</mark>'
+                  )
+                : '';
+            html += `
+            <div style="background:rgba(0,0,0,0.2);border:1px solid ${granted ? 'rgba(255,193,7,0.3)' : 'var(--border-subtle)'};border-radius:8px;margin-bottom:12px;overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border-subtle);">
+                    <span style="font-family:monospace;font-size:0.78rem;color:var(--text-secondary);">${escapeHtml(d.id||'?')}</span>
+                    <span class="classification-chip ${cls}">${cls}</span>
+                    <span style="color:var(--accent-purple);font-weight:600;font-size:0.8rem;">${escapeHtml(d.user||'?')}</span>
+                    <span style="margin-left:auto;" class="access-badge ${granted?'granted':'denied'}">${granted?'✓ GRANTED':'✗ DENIED'}</span>
+                </div>
+                ${granted && fullContent ? `
+                <div style="padding:12px 14px;font-family:monospace;font-size:0.78rem;color:var(--text-primary);white-space:pre-wrap;line-height:1.6;max-height:320px;overflow-y:auto;">${highlightedContent}</div>
+                ` : granted ? `<div style="padding:10px 14px;color:var(--text-muted);font-size:0.8rem;">Content not available</div>` : ''}
+            </div>`;
         }
-        html += `</tbody></table>`;
     }
 
     // ── Injection result cards ─────────────────────────────────────
@@ -2601,31 +2637,82 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }, { once: true });
 
-// ========== LATERAL MOVEMENT ALERT POLLING ==========
-// Polls /api/lateral-movement-alerts every 6 s.
-// When SMB credentials are detected via prompt injection (step 7 of the demo),
-// a banner pops up with a direct link to the lateral movement task.
+// ========== LATERAL MOVEMENT ALERT (credential discovery) ==========
+// Only fires when AI Hunter analyzes documents and discovers SMB credentials.
+// The banner is PERMANENT — persisted in localStorage and shown on every page
+// load until manually cleared.  NO background polling to avoid re-triggering
+// on refresh.
 
-let _lateralAlertsSeen = new Set();
+const _LS_LATERAL_KEY = 'nn_lateral_alerts';
 
+function _loadPersistedAlerts() {
+    try { return JSON.parse(localStorage.getItem(_LS_LATERAL_KEY) || '[]'); } catch { return []; }
+}
+
+function _savePersistedAlerts(list) {
+    localStorage.setItem(_LS_LATERAL_KEY, JSON.stringify(list));
+}
+
+// Called by renderHunterResults when credentials are discovered in a doc.
+function triggerLateralMovementAlert(intel, taskId) {
+    const id = 'lm-' + Date.now();
+    const alert = { id, intel: intel || {}, task_id: taskId || '' };
+
+    const persisted = _loadPersistedAlerts();
+    // Avoid exact duplicate (same target+username within the same session)
+    const isDup = persisted.some(a =>
+        a.intel.target_ip === alert.intel.target_ip &&
+        a.intel.username  === alert.intel.username
+    );
+    if (!isDup) {
+        persisted.unshift(alert);
+        _savePersistedAlerts(persisted);
+    }
+
+    _renderLateralBanner(alert);
+}
+
+// Also poll server alerts, but ONLY add ones not yet in localStorage.
 function pollLateralMovementAlerts() {
+    const seen = new Set(_loadPersistedAlerts().map(a => a.server_id).filter(Boolean));
     fetch('/api/lateral-movement-alerts')
         .then(r => r.json())
         .then(data => {
             const alerts = data.alerts || [];
-            for (const alert of alerts) {
-                if (!_lateralAlertsSeen.has(alert.id)) {
-                    _lateralAlertsSeen.add(alert.id);
-                    showLateralMovementBanner(alert);
+            for (const srv of alerts) {
+                if (!seen.has(srv.id)) {
+                    const stored = { id: 'lm-' + srv.id, server_id: srv.id, intel: srv.intel || {}, task_id: srv.task_id || '' };
+                    const persisted = _loadPersistedAlerts();
+                    const isDup = persisted.some(a => a.server_id === srv.id);
+                    if (!isDup) {
+                        persisted.unshift(stored);
+                        _savePersistedAlerts(persisted);
+                        _renderLateralBanner(stored);
+                    }
                 }
             }
         })
         .catch(() => {});
 }
 
-function showLateralMovementBanner(alert) {
-    const intel = alert.intel || {};
+function _renderLateralBanner(alert) {
+    const intel  = alert.intel || {};
     const taskId = alert.task_id || '';
+
+    // Anchor: fixed top-of-dashboard strip inside the command-hub tab
+    let strip = document.getElementById('lateral-alert-strip');
+    if (!strip) {
+        const hub = document.getElementById('command-hub-tab');
+        if (hub) {
+            strip = document.createElement('div');
+            strip.id = 'lateral-alert-strip';
+            strip.style.cssText = 'position:sticky;top:0;z-index:200;margin-bottom:16px;';
+            hub.insertBefore(strip, hub.firstChild);
+        }
+    }
+
+    // Avoid rendering duplicate banners (same id)
+    if (document.getElementById('lateral-move-banner-' + alert.id)) return;
 
     const banner = document.createElement('div');
     banner.id = 'lateral-move-banner-' + alert.id;
@@ -2633,10 +2720,9 @@ function showLateralMovementBanner(alert) {
         background: linear-gradient(135deg, #f0a500, #e67e22);
         border: 3px solid #f39c12;
         padding: 22px 25px;
-        margin: 16px 0;
+        margin-bottom: 10px;
         border-radius: 12px;
         box-shadow: 0 8px 30px rgba(243, 156, 18, 0.45);
-        animation: aiHunterPulse 2s ease-in-out infinite;
     `;
 
     banner.innerHTML = `
@@ -2644,48 +2730,50 @@ function showLateralMovementBanner(alert) {
             <i class="fas fa-network-wired" style="font-size:2.2rem;color:#fff;"></i>
             <div style="flex:1;">
                 <h3 style="color:#fff;margin:0;font-size:1.2rem;font-weight:700;">
-                    🔑 LATERAL MOVEMENT — SMB CREDENTIALS EXFILTRATED
+                    🔑 LATERAL MOVEMENT — SMB CREDENTIALS DISCOVERED
                 </h3>
                 <p style="color:rgba(255,255,255,0.9);margin:4px 0 0 0;font-size:0.88rem;">
-                    Credentials obtained via prompt injection on ${escapeHtml(alert.agent_id || 'unknown agent')}
+                    Credentials obtained via AI Hunter prompt injection
                 </p>
             </div>
         </div>
-        <div style="background:rgba(0,0,0,0.25);padding:14px;border-radius:8px;margin-bottom:14px;font-family:monospace;font-size:0.88rem;color:#fff;">
+        <div style="background:rgba(0,0,0,0.25);padding:14px;border-radius:8px;margin-bottom:14px;font-family:monospace;font-size:0.88rem;color:#fff;line-height:1.9;">
             <div>🖥️  <strong>Target:</strong> ${escapeHtml(intel.target_ip || '10.5.9.40')} (${escapeHtml(intel.target_host || 'acme-files-01')})</div>
             <div>🔌  <strong>Protocol:</strong> ${escapeHtml(intel.protocol || 'SMB/CIFS')} · Port ${escapeHtml(String(intel.port || 445))}</div>
             <div>👤  <strong>User:</strong> ${escapeHtml(intel.domain || 'ACMECORP')}\\${escapeHtml(intel.username || 'samba')}</div>
-            <div>🔒  <strong>Pass:</strong> ${escapeHtml(intel.password || 'password123')}</div>
-            <div>📁  <strong>Share:</strong> ${escapeHtml(intel.share || '\\\\10.5.9.40\\Shared')}</div>
+            <div>🔒  <strong>Password:</strong> ${escapeHtml(intel.password || 'password123')}</div>
+            <div>📁  <strong>Shares:</strong> ${escapeHtml(intel.share || '\\\\10.5.9.40\\Shared, \\\\10.5.9.40\\HR, \\\\10.5.9.40\\Finance')}</div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button onclick="goToLateralTask('${escapeHtml(taskId)}')" class="btn"
                 style="flex:1;min-width:200px;background:linear-gradient(135deg,#28a745,#20c997);border-color:#28a745;color:#fff;font-weight:700;">
                 <i class="fas fa-rocket"></i> VIEW LATERAL TASK
             </button>
-            <button onclick="this.closest('[id^=lateral-move-banner]').remove()" class="btn"
+            <button onclick="_dismissLateralBanner('${escapeHtml(alert.id)}',this)" class="btn"
                 style="background:#6c757d;border-color:#6c757d;color:#fff;font-weight:700;">
                 <i class="fas fa-times"></i> DISMISS
             </button>
         </div>
     `;
 
-    // Inject into terminal output so it's immediately visible
-    const terminalOutput = document.getElementById('terminal-output');
-    if (terminalOutput) {
-        terminalOutput.appendChild(banner);
-        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (strip) {
+        strip.appendChild(banner);
+    } else {
+        // Fallback: append to command hub or body
+        const hub = document.getElementById('command-hub-tab') || document.body;
+        hub.insertBefore(banner, hub.firstChild);
     }
+}
 
-    // Also show a persistent notification
-    showNotification(
-        `SMB credentials exfiltrated → lateral movement task queued (${intel.username || 'samba'}:${intel.password || 'password123'} @ ${intel.target_ip || '10.5.9.40'})`,
-        'warning'
-    );
+function _dismissLateralBanner(alertId, btn) {
+    const banner = document.getElementById('lateral-move-banner-' + alertId);
+    if (banner) banner.remove();
+    // Remove from localStorage so it won't re-appear on reload
+    const persisted = _loadPersistedAlerts().filter(a => a.id !== alertId);
+    _savePersistedAlerts(persisted);
 }
 
 function goToLateralTask(taskId) {
-    // Switch to Command Hub and highlight the task
     switchTab('command-hub');
     if (taskId) {
         setTimeout(() => {
@@ -2699,8 +2787,8 @@ function goToLateralTask(taskId) {
     }
 }
 
-// Start polling once the page loads; re-poll every 6 s
+// On page load: restore persisted banners + do ONE server poll (no interval)
 document.addEventListener('DOMContentLoaded', () => {
-    pollLateralMovementAlerts();
-    setInterval(pollLateralMovementAlerts, 6000);
+    _loadPersistedAlerts().forEach(a => _renderLateralBanner(a));
+    pollLateralMovementAlerts(); // single sync with server — no setInterval
 });

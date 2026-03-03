@@ -18,6 +18,18 @@
       "tags": ["network", "infrastructure", "hosts", "smb"]
     },
     {
+      "id": "doc-sensitive-3",
+      "path": "docs/it-fileshare-guide.md",
+      "classification": "sensitive",
+      "tags": ["smb", "fileshare", "credentials", "samba", "it-ops"]
+    },
+    {
+      "id": "doc-sensitive-4",
+      "path": "docs/cloud-infrastructure-overview.md",
+      "classification": "sensitive",
+      "tags": ["aws", "cloud", "s3", "iam", "credentials", "infrastructure"]
+    },
+    {
       "id": "doc-secret-1",
       "path": "docs/production-credentials.md",
       "classification": "secret",
