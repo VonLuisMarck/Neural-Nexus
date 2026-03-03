@@ -1588,23 +1588,21 @@ function copyModalContent(elementId, btnId) {
 
 function analyzeIntelWithAI(intel) {
     showNotification('Analyzing intelligence with AI...', 'info');
-    
-    fetch('/api/chat', {
+
+    fetch('/api/analyze', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + getAuthToken()
-        },
-        body: JSON.stringify({
-            message: 'Analyze this intelligence data and identify potential attack vectors, credentials, and exploitation opportunities:',
-            logs: intel
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intel })
     })
     .then(response => response.json())
     .then(data => {
-        handleChatResponse(data);
-        switchTab('terminal');
-        showNotification('AI analysis complete', 'success');
+        if (data.status === 'success') {
+            addTerminalEntry('ai', data.analysis || 'No analysis returned.');
+            switchTab('terminal');
+            showNotification('AI analysis complete', 'success');
+        } else {
+            showNotification('Analysis failed: ' + (data.message || 'unknown error'), 'error');
+        }
     })
     .catch(error => {
         console.error('Error analyzing intel:', error);
@@ -2451,8 +2449,8 @@ function setHunterMode(mode) {
 
 function prefillLabTarget() {
     const urlInput = document.getElementById('ai-hunter-direct-url');
-    if (urlInput) urlInput.value = 'http://localhost:8080';
-    showNotification('Victim-lab preset loaded — target: localhost:8080', 'success');
+    if (urlInput) urlInput.value = 'http://172.30.0.10:8080';
+    showNotification('Victim-lab preset loaded — target: 172.30.0.10:8080', 'success');
 }
 
 // Wire direct attack button
@@ -2464,7 +2462,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }, { once: true });
 
 async function launchDirectAttack() {
-    const targetUrl = (document.getElementById('ai-hunter-direct-url') || {}).value || 'http://localhost:8080';
+    const targetUrl = (document.getElementById('ai-hunter-direct-url') || {}).value || 'http://172.30.0.10:8080';
     const strategy  = (document.getElementById('ai-hunter-selected-strategy') || {}).value || 'data_exfil';
     const statusEl  = document.getElementById('hunter-result-status');
     const btn       = document.getElementById('ai-hunter-direct-attack-btn');
@@ -2577,7 +2575,7 @@ function renderHunterResults(report) {
             };
         }
     }
-    // Store for explicit operator analysis — do NOT auto-trigger banner
+    // Store for manual trigger via "AI ANALYZE" button — do NOT auto-trigger banner
     window._hunterSmbIntel = smbIntel || null;
 
     // ── Doc access matrix ─────────────────────────────────────────
@@ -2680,6 +2678,26 @@ function renderHunterResults(report) {
         const bypassed = llm_responses.filter(r => r.injection_succeeded).length;
         statusEl.textContent = bypassed > 0 ? `${bypassed} injection(s) succeeded` : 'Attack complete — all blocked';
         statusEl.style.color = bypassed > 0 ? 'var(--accent-red)' : 'var(--accent-green)';
+    }
+
+    // ── AI ANALYZE CTA — only if credentials were found ──────────────
+    const existingCta = document.getElementById('hunter-analyze-cta');
+    if (existingCta) existingCta.remove();
+    if (window._hunterSmbIntel) {
+        const cta = document.createElement('div');
+        cta.id = 'hunter-analyze-cta';
+        cta.style.cssText = 'margin-top:16px;padding:14px 16px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.3);border-radius:10px;display:flex;align-items:center;gap:14px;';
+        cta.innerHTML = `
+            <i class="fas fa-key" style="color:var(--accent-red);font-size:1.3rem;flex-shrink:0;"></i>
+            <div style="flex:1;font-size:0.82rem;color:var(--text-secondary);">
+                <strong style="color:var(--accent-red);">Credentials detected</strong> in exfiltrated documents.<br>
+                <span style="color:var(--text-muted);">Run AI analysis to generate lateral movement playbook.</span>
+            </div>
+            <button id="hunter-ai-analyze-btn" onclick="triggerHunterLateralAnalysis()" class="btn small"
+                style="background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.4);color:var(--accent-red);font-weight:700;white-space:nowrap;">
+                <i class="fas fa-brain"></i> AI ANALYZE
+            </button>`;
+        detailedDiv.appendChild(cta);
     }
 }
 
@@ -2785,23 +2803,24 @@ function triggerLateralMovementAlert(intel, taskId) {
     _renderLateralBanner(alert);
 }
 
-// Also poll server alerts, but ONLY add ones not yet in localStorage.
+// Also poll server alerts, but ONLY add ones not yet seen or explicitly dismissed.
 function pollLateralMovementAlerts() {
     const seen = new Set(_loadPersistedAlerts().map(a => a.server_id).filter(Boolean));
+    const dismissed = _loadDismissed();
     fetch('/api/lateral-movement-alerts')
         .then(r => r.json())
         .then(data => {
             const alerts = data.alerts || [];
             for (const srv of alerts) {
-                if (!seen.has(srv.id)) {
-                    const stored = { id: 'lm-' + srv.id, server_id: srv.id, intel: srv.intel || {}, task_id: srv.task_id || '' };
-                    const persisted = _loadPersistedAlerts();
-                    const isDup = persisted.some(a => a.server_id === srv.id);
-                    if (!isDup) {
-                        persisted.unshift(stored);
-                        _savePersistedAlerts(persisted);
-                        _renderLateralBanner(stored);
-                    }
+                const localId = 'lm-' + srv.id;
+                // Skip if already shown or user explicitly dismissed
+                if (seen.has(srv.id) || dismissed.has(localId)) continue;
+                const stored = { id: localId, server_id: srv.id, intel: srv.intel || {}, task_id: srv.task_id || '' };
+                const persisted = _loadPersistedAlerts();
+                if (!persisted.some(a => a.server_id === srv.id)) {
+                    persisted.unshift(stored);
+                    _savePersistedAlerts(persisted);
+                    _renderLateralBanner(stored);
                 }
             }
         })
@@ -2878,12 +2897,40 @@ function _renderLateralBanner(alert) {
     }
 }
 
+const _LS_DISMISSED_KEY = 'nn_lateral_dismissed';
+
+function _loadDismissed() {
+    try { return new Set(JSON.parse(localStorage.getItem(_LS_DISMISSED_KEY) || '[]')); }
+    catch { return new Set(); }
+}
+function _saveDismissed(set) {
+    localStorage.setItem(_LS_DISMISSED_KEY, JSON.stringify([...set]));
+}
+
 function _dismissLateralBanner(alertId, btn) {
     const banner = document.getElementById('lateral-move-banner-' + alertId);
     if (banner) banner.remove();
-    // Remove from localStorage so it won't re-appear on reload
+    // Remove from persisted list
     const persisted = _loadPersistedAlerts().filter(a => a.id !== alertId);
     _savePersistedAlerts(persisted);
+    // Track dismissed ID so pollLateralMovementAlerts won't re-add from server
+    const dismissed = _loadDismissed();
+    dismissed.add(alertId);
+    _saveDismissed(dismissed);
+}
+
+function triggerHunterLateralAnalysis() {
+    const intel = window._hunterSmbIntel;
+    if (!intel) { showNotification('No credentials found to analyze', 'info'); return; }
+    const btn = document.getElementById('hunter-ai-analyze-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ANALYZING…'; }
+    triggerLateralMovementAlert(intel, '');
+    showNotification('Lateral movement alert queued', 'success');
+    // Remove the CTA after triggering
+    setTimeout(() => {
+        const cta = document.getElementById('hunter-analyze-cta');
+        if (cta) cta.remove();
+    }, 1200);
 }
 
 function goToLateralTask(taskId) {
