@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 from rbac import can_read_classification
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,7 +25,7 @@ def list_docs_for_user(user) -> List[Dict]:
             })
     return docs
 
-def get_doc_by_id(doc_id: str) -> Dict | None:
+def get_doc_by_id(doc_id: str) -> Optional[Dict]:
     for doc in DOCS_INDEX:
         if doc["id"] == doc_id:
             return doc
