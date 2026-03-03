@@ -2449,8 +2449,8 @@ function setHunterMode(mode) {
 
 function prefillLabTarget() {
     const urlInput = document.getElementById('ai-hunter-direct-url');
-    if (urlInput) urlInput.value = 'http://172.30.0.10:8080';
-    showNotification('Victim-lab preset loaded — target: 172.30.0.10:8080', 'success');
+    if (urlInput) urlInput.value = 'http://10.5.9.40:8080';
+    showNotification('Victim-lab preset loaded — target: 10.5.9.40:8080', 'success');
 }
 
 // Wire direct attack button
@@ -2462,7 +2462,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }, { once: true });
 
 async function launchDirectAttack() {
-    const targetUrl = (document.getElementById('ai-hunter-direct-url') || {}).value || 'http://172.30.0.10:8080';
+    const targetUrl = (document.getElementById('ai-hunter-direct-url') || {}).value || 'http://10.5.9.40:8080';
     const strategy  = (document.getElementById('ai-hunter-selected-strategy') || {}).value || 'data_exfil';
     const statusEl  = document.getElementById('hunter-result-status');
     const btn       = document.getElementById('ai-hunter-direct-attack-btn');
