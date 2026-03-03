@@ -44,6 +44,11 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204   # No Content — silences the browser 404
+
+
 @app.route("/health", methods=["GET"])
 def health():
     ollama_models = []

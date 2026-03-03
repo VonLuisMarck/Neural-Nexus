@@ -117,6 +117,13 @@ if [[ -f "$PID_FILE" ]]; then
   fi
   rm -f "$PID_FILE"
 fi
+# Fallback: kill any process still holding the port (handles orphans from failed starts)
+STALE=$(lsof -ti tcp:"$PORT" 2>/dev/null || true)
+if [[ -n "$STALE" ]]; then
+  info "Puerto $PORT ocupado (PID $STALE) — liberando…"
+  kill "$STALE" 2>/dev/null || true
+  sleep 1
+fi
 
 # ── Arrancar Flask ────────────────────────────────────────────────────────────
 step "Arrancando victim-lab en :$PORT"
