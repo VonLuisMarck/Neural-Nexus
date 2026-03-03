@@ -15,6 +15,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 def init_jwt(app, secret_key: str):
     app.config["JWT_SECRET_KEY"] = secret_key
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+    app.config["JWT_TOKEN_LOCATION"] = ["headers"]
     jwt = JWTManager(app)
     return jwt
 
